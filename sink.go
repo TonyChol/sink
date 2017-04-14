@@ -1,11 +1,11 @@
 package main
 
 import (
+	"container/list"
 	"errors"
-	"io/ioutil"
 	"log"
-
 	"os"
+	"path/filepath"
 
 	"github.com/howeyc/fsnotify"
 )
@@ -39,18 +39,12 @@ func watchDir(dir string) {
 		return
 	}
 
-	files, err := ioutil.ReadDir("./testDir")
+	// files, err := ioutil.ReadDir("./testDir")
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, file := range files {
-		log.Println(file.Name())
-		if file.IsDir() == true {
-			watchDir(file.Name())
-		}
-	}
 	<-done
 }
 
@@ -67,6 +61,21 @@ func getDirPathFromAgrs() (string, error) {
 	return os.Args[1], nil
 }
 
+func traverseDir(fl *list.List) filepath.WalkFunc {
+	return func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+
+		if info.IsDir() {
+			fl.PushBack(path)
+		}
+
+		return nil
+	}
+}
+
 func main() {
 	rootDir, err := getAbsolutePath()
 	if err != nil {
@@ -78,9 +87,23 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println("Args[1]: ", relativeDir)
+	targetDir := rootDir + "/" + relativeDir
 
+	log.Println("target directory: ", targetDir)
 	log.Print("Root Dir: ", rootDir)
 
-	watchDir("testDir")
+	l := list.New()
+	filepath.Walk(targetDir, traverseDir(l))
+
+	log.Println("list's length = ", l.Len())
+
+	for e := l.Front(); e != nil; e = e.Next() {
+		folder := e.Value
+		go watchDir(folder.(string))
+	}
+
+	log.Println("Start setting up file watcher for each directory in ", rootDir)
+
+	done := make(chan bool)
+	<-done
 }
