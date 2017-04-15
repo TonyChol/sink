@@ -5,6 +5,8 @@ import (
 	"log"
 	"path/filepath"
 
+	"os"
+
 	"github.com/howeyc/fsnotify"
 	"github.com/tonychol/sink/fs"
 	"github.com/tonychol/sink/util"
@@ -22,14 +24,49 @@ func watchDir(dirs ...string) {
 			select {
 			case ev := <-watcher.Event:
 				log.Println("event:", ev)
+				eventDir := ev.Name
 				if ev.IsCreate() {
-					log.Println("Dir", ev.Name, "is created! Start watch this new folder")
-					newDir := ev.Name
-					err = watcher.Watch(newDir)
-					if err != nil {
-						log.Fatal(err)
-						return
+					tempFile, err := os.Open(eventDir)
+					util.HandleErr(err)
+
+					fi, err := tempFile.Stat()
+					util.HandleErr(err)
+					switch {
+					case fi.IsDir():
+						log.Println("File", eventDir, "is created! Start watching this new folder")
+						log.Println("Will start sending new directory to other endpoints")
+						log.Println()
+						err = watcher.Watch(eventDir)
+						if err != nil {
+							log.Fatal(err)
+							return
+						}
 					}
+				}
+
+				if ev.IsDelete() {
+					log.Println("File", eventDir, "is deleted! Stop watching this new folder")
+					log.Println("Will start notifying this deleted directory to other endpoints")
+					log.Println()
+					watcher.RemoveWatch(eventDir)
+				}
+
+				if ev.IsModify() {
+					log.Println("File", eventDir, "is modified!")
+					log.Println("Will start notifying this modified directory to other endpoints")
+					log.Println()
+				}
+
+				if ev.IsRename() {
+					log.Println("File", eventDir, "is renamed!")
+					log.Println("Will start notifying this renamed directory to other endpoints")
+					log.Println()
+				}
+
+				if ev.IsAttrib() {
+					log.Println("File", eventDir, "'s attributes are changed")
+					log.Println("Will start notifying this renamed directory to other endpoints")
+					log.Println()
 				}
 			case err := <-watcher.Error:
 				log.Println("error", err)
