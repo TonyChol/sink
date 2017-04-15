@@ -10,7 +10,7 @@ import (
 	"github.com/tonychol/sink/util"
 )
 
-func watchDir(dir string) {
+func watchDir(dirs ...string) {
 	watcher, err := fsnotify.NewWatcher()
 	util.HandleErr(err)
 	defer watcher.Close()
@@ -28,14 +28,14 @@ func watchDir(dir string) {
 		}
 	}()
 
-	err = watcher.Watch(dir)
-	defer watcher.RemoveWatch(dir)
-
-	if err != nil {
-		log.Fatal(err)
-		return
+	for _, dir := range dirs {
+		err = watcher.Watch(dir)
+		defer watcher.RemoveWatch(dir)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
 	}
-
 	// files, err := ioutil.ReadDir("./testDir")
 
 	util.HandleErr(err)
@@ -62,10 +62,17 @@ func main() {
 
 	log.Println("list's length = ", l.Len())
 
+	var dirSlice = make([]string, l.Len())
+
+	idx := 0
 	for e := l.Front(); e != nil; e = e.Next() {
 		folder := e.Value
-		go watchDir(folder.(string))
+		dirSlice[idx] = folder.(string)
+		// go watchDir(folder.(string))
+		idx++
 	}
+
+	go watchDir(dirSlice...)
 
 	log.Println("Start setting up file watcher for each directory in ", rootDir)
 
