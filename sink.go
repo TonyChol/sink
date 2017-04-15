@@ -45,9 +45,6 @@ func watchDir(dirs ...string) {
 			return
 		}
 	}
-	// files, err := ioutil.ReadDir("./testDir")
-
-	util.HandleErr(err)
 
 	<-done
 }
