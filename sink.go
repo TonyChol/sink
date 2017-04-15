@@ -8,15 +8,13 @@ import (
 	"path/filepath"
 
 	"github.com/howeyc/fsnotify"
+	"github.com/tonychol/sink/util"
 )
 
 func watchDir(dir string) {
 	watcher, err := fsnotify.NewWatcher()
+	util.HandleErr(err)
 	defer watcher.Close()
-
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	done := make(chan bool)
 
@@ -41,9 +39,7 @@ func watchDir(dir string) {
 
 	// files, err := ioutil.ReadDir("./testDir")
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	util.HandleErr(err)
 
 	<-done
 }
@@ -78,14 +74,10 @@ func traverseDir(fl *list.List) filepath.WalkFunc {
 
 func main() {
 	rootDir, err := getAbsolutePath()
-	if err != nil {
-		log.Fatal(err)
-	}
+	util.HandleErr(err)
 
 	relativeDir, err := getDirPathFromAgrs()
-	if err != nil {
-		log.Fatal(err)
-	}
+	util.HandleErr(err)
 
 	targetDir := rootDir + "/" + relativeDir
 
