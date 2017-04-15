@@ -21,7 +21,16 @@ func watchDir(dirs ...string) {
 		for {
 			select {
 			case ev := <-watcher.Event:
-				log.Println("event: ", ev)
+				log.Println("event:", ev)
+				if ev.IsCreate() {
+					log.Println("Dir", ev.Name, "is created! Start watch this new folder")
+					newDir := ev.Name
+					err = watcher.Watch(newDir)
+					if err != nil {
+						log.Fatal(err)
+						return
+					}
+				}
 			case err := <-watcher.Error:
 				log.Println("error", err)
 			}
