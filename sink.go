@@ -2,12 +2,11 @@ package main
 
 import (
 	"container/list"
-	"errors"
 	"log"
-	"os"
 	"path/filepath"
 
 	"github.com/howeyc/fsnotify"
+	"github.com/tonychol/sink/fs"
 	"github.com/tonychol/sink/util"
 )
 
@@ -44,39 +43,12 @@ func watchDir(dir string) {
 	<-done
 }
 
-func getAbsolutePath() (string, error) {
-	return os.Getwd()
-}
-
-func getDirPathFromAgrs() (string, error) {
-	argsArr := os.Args
-	if len(argsArr) < 2 {
-		err := errors.New("You should attach a file directory")
-		return "", err
-	}
-	return os.Args[1], nil
-}
-
-func traverseDir(fl *list.List) filepath.WalkFunc {
-	return func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			log.Fatal(err)
-			return err
-		}
-
-		if info.IsDir() {
-			fl.PushBack(path)
-		}
-
-		return nil
-	}
-}
-
 func main() {
-	rootDir, err := getAbsolutePath()
+
+	rootDir, err := fs.GetAbsolutePath()
 	util.HandleErr(err)
 
-	relativeDir, err := getDirPathFromAgrs()
+	relativeDir, err := fs.GetDirPathFromAgrs()
 	util.HandleErr(err)
 
 	targetDir := rootDir + "/" + relativeDir
@@ -85,7 +57,8 @@ func main() {
 	log.Print("Root Dir: ", rootDir)
 
 	l := list.New()
-	filepath.Walk(targetDir, traverseDir(l))
+
+	filepath.Walk(targetDir, fs.TraverseDir(l))
 
 	log.Println("list's length = ", l.Len())
 
