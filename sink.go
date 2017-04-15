@@ -68,7 +68,6 @@ func main() {
 	for e := l.Front(); e != nil; e = e.Next() {
 		folder := e.Value
 		dirSlice[idx] = folder.(string)
-		// go watchDir(folder.(string))
 		idx++
 	}
 
