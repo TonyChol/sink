@@ -3,21 +3,18 @@ package main
 import (
 	"container/list"
 	"log"
-	"path/filepath"
-
 	"os"
+	"path/filepath"
 
 	"github.com/howeyc/fsnotify"
 	"github.com/tonychol/sink/fs"
 	"github.com/tonychol/sink/util"
 )
 
-func watchDir(dirs ...string) {
+func watchDir(done chan bool, dirs ...string) {
 	watcher, err := fsnotify.NewWatcher()
 	util.HandleErr(err)
 	defer watcher.Close()
-
-	done := make(chan bool)
 
 	go func() {
 		for {
@@ -114,10 +111,13 @@ func main() {
 		idx++
 	}
 
-	go watchDir(dirSlice...)
+	done := make(chan bool)
+
+	go watchDir(done, dirSlice...)
 
 	log.Println("Start setting up file watcher for each directory in ", rootDir)
 
-	done := make(chan bool)
-	<-done
+	exit := make(chan bool)
+	<-exit
+	done <- true
 }
