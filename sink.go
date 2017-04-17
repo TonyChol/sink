@@ -100,15 +100,12 @@ func main() {
 
 	filepath.Walk(targetDir, fs.TraverseDir(l))
 
-	log.Println("list's length = ", l.Len())
-
 	var dirSlice = make([]string, l.Len())
 
-	idx := 0
+	i := 0
 	for e := l.Front(); e != nil; e = e.Next() {
-		folder := e.Value
-		dirSlice[idx] = folder.(string)
-		idx++
+		dirSlice[i] = e.Value.(string)
+		i++
 	}
 
 	done := make(chan bool)
