@@ -31,7 +31,7 @@ func watchDir(done chan bool, dirs ...string) {
 					switch {
 					case fi.IsDir():
 						log.Println("File", eventDir, "is created! Start watching this new folder")
-						log.Println("Will start sending new directory to other endpoints")
+						log.Println("Will start sending new file to other endpoints")
 						log.Println()
 						err = watcher.Watch(eventDir)
 						if err != nil {

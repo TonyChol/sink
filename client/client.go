@@ -26,6 +26,11 @@ func main() {
 	util.HardHandleErr(err)
 
 	fmt.Println(string(result))
+
+	// b64Str, err := fs.Base64StrFromFile("./client")
+	// destStr := "./clientBak"
+	// err = fs.FileFromBase64Str(b64Str, destStr)
+	// util.HardHandleErr(err)
 	os.Exit(0)
 }
 
