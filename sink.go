@@ -22,19 +22,19 @@ func watchDir(done chan bool, dirs ...string) {
 			select {
 			case ev := <-watcher.Event:
 				log.Println("event:", ev)
-				eventDir := ev.Name
+				eventFile := ev.Name
 				if ev.IsCreate() {
-					tempFile, err := os.Open(eventDir)
+					tempFile, err := os.Open(eventFile)
 					util.HandleErr(err)
 
 					fi, err := tempFile.Stat()
 					util.HandleErr(err)
 					switch {
 					case fi.IsDir():
-						log.Println("File", eventDir, "is created! Start watching this new folder")
+						log.Println("File", eventFile, "is created! Start watching this new folder")
 						log.Println("Will start sending new file to other endpoints")
 						log.Println()
-						err = watcher.Watch(eventDir)
+						err = watcher.Watch(eventFile)
 						if err != nil {
 							log.Fatal(err)
 							return
@@ -43,26 +43,26 @@ func watchDir(done chan bool, dirs ...string) {
 				}
 
 				if ev.IsDelete() {
-					log.Println("File", eventDir, "is deleted! Stop watching this new folder")
+					log.Println("File", eventFile, "is deleted! Stop watching this new folder")
 					log.Println("Will start notifying this deleted directory to other endpoints")
 					log.Println()
-					watcher.RemoveWatch(eventDir)
+					watcher.RemoveWatch(eventFile)
 				}
 
 				if ev.IsModify() {
-					log.Println("File", eventDir, "is modified!")
+					log.Println("File", eventFile, "is modified!")
 					log.Println("Will start notifying this modified directory to other endpoints")
 					log.Println()
 				}
 
 				if ev.IsRename() {
-					log.Println("File", eventDir, "is renamed!")
+					log.Println("File", eventFile, "is renamed!")
 					log.Println("Will start notifying this renamed directory to other endpoints")
 					log.Println()
 				}
 
 				if ev.IsAttrib() {
-					log.Println("File", eventDir, "'s attributes are changed")
+					log.Println("File", eventFile, "'s attributes are changed")
 					log.Println("Will start notifying this renamed directory to other endpoints")
 					log.Println()
 				}
