@@ -44,6 +44,23 @@ func TraverseDir(fl *list.List) filepath.WalkFunc {
 	}
 }
 
+// AllRecursiveDirsIn : Get all the directories string inside the dirPath
+func AllRecursiveDirsIn(dirPath string) []string {
+	l := list.New()
+
+	filepath.Walk(dirPath, TraverseDir(l))
+
+	var dirSlice = make([]string, l.Len())
+
+	i := 0
+	for e := l.Front(); e != nil; e = e.Next() {
+		dirSlice[i] = e.Value.(string)
+		i++
+	}
+
+	return dirSlice
+}
+
 // Base64StrFromFile : Encode the file into the base64 string
 func Base64StrFromFile(path string) (string, error) {
 	buff, err := ioutil.ReadFile(path)

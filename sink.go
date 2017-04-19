@@ -1,10 +1,8 @@
 package main
 
 import (
-	"container/list"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/howeyc/fsnotify"
 	"github.com/tonychol/sink/fs"
@@ -85,23 +83,6 @@ func watchDir(done chan bool, dirs ...string) {
 	<-done
 }
 
-// allRecursiveDirsIn : Get all the directories string inside the dirPath
-func allRecursiveDirsIn(dirPath string) []string {
-	l := list.New()
-
-	filepath.Walk(dirPath, fs.TraverseDir(l))
-
-	var dirSlice = make([]string, l.Len())
-
-	i := 0
-	for e := l.Front(); e != nil; e = e.Next() {
-		dirSlice[i] = e.Value.(string)
-		i++
-	}
-
-	return dirSlice
-}
-
 func main() {
 
 	rootDir, err := fs.GetAbsolutePath()
@@ -115,7 +96,7 @@ func main() {
 	log.Println("target directory: ", targetDir)
 	log.Print("Root Dir: ", rootDir)
 
-	dirSlice := allRecursiveDirsIn(targetDir)
+	dirSlice := fs.AllRecursiveDirsIn(targetDir)
 
 	done := make(chan bool)
 	go watchDir(done, dirSlice...)
