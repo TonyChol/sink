@@ -63,7 +63,7 @@ func watchDir(done chan bool, dirs ...string) {
 
 				if ev.IsAttrib() {
 					log.Println("File", eventFile, "'s attributes are changed")
-					log.Println("Will start notifying this renamed directory to other endpoints")
+					log.Println("Will start notifying that the attributes of this directory is changed")
 					log.Println()
 				}
 			case err := <-watcher.Error:
