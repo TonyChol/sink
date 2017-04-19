@@ -97,10 +97,14 @@ func main() {
 	log.Println("target directory: ", targetDir)
 	log.Print("Root Dir: ", rootDir)
 
+	// Do the scan for the first time
+	filedb := fs.ScanDir(targetDir)
+	log.Println(filedb.JsonStr())
+
 	dirSlice := fs.AllRecursiveDirsIn(targetDir)
 
 	done := make(chan bool)
-	go watchDir(done, dirSlice...)
+	go watchDir(done, dirSlice...) // start firing the file watcher
 
 	log.Println("Start setting up file watcher for each directory in ", rootDir)
 
