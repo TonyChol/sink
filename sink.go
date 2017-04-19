@@ -1,10 +1,8 @@
 package main
 
 import (
-	"container/list"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/howeyc/fsnotify"
 	"github.com/tonychol/sink/fs"
@@ -12,6 +10,7 @@ import (
 )
 
 // watchDir : A goroutine to watch all the directories
+// and fires the specific file event
 func watchDir(done chan bool, dirs ...string) {
 	watcher, err := fsnotify.NewWatcher()
 	util.HandleErr(err)
@@ -22,19 +21,19 @@ func watchDir(done chan bool, dirs ...string) {
 			select {
 			case ev := <-watcher.Event:
 				log.Println("event:", ev)
-				eventDir := ev.Name
+				eventFile := ev.Name
 				if ev.IsCreate() {
-					tempFile, err := os.Open(eventDir)
+					tempFile, err := os.Open(eventFile)
 					util.HandleErr(err)
 
 					fi, err := tempFile.Stat()
 					util.HandleErr(err)
 					switch {
 					case fi.IsDir():
-						log.Println("File", eventDir, "is created! Start watching this new folder")
+						log.Println("File", eventFile, "is created! Start watching this new folder")
 						log.Println("Will start sending new file to other endpoints")
 						log.Println()
-						err = watcher.Watch(eventDir)
+						err = watcher.Watch(eventFile)
 						if err != nil {
 							log.Fatal(err)
 							return
@@ -43,31 +42,32 @@ func watchDir(done chan bool, dirs ...string) {
 				}
 
 				if ev.IsDelete() {
-					log.Println("File", eventDir, "is deleted! Stop watching this new folder")
+					log.Println("File", eventFile, "is deleted! Stop watching this new folder")
 					log.Println("Will start notifying this deleted directory to other endpoints")
 					log.Println()
-					watcher.RemoveWatch(eventDir)
+					watcher.RemoveWatch(eventFile)
 				}
 
 				if ev.IsModify() {
-					log.Println("File", eventDir, "is modified!")
+					log.Println("File", eventFile, "is modified!")
 					log.Println("Will start notifying this modified directory to other endpoints")
 					log.Println()
 				}
 
 				if ev.IsRename() {
-					log.Println("File", eventDir, "is renamed!")
+					log.Println("File", eventFile, "is renamed!")
 					log.Println("Will start notifying this renamed directory to other endpoints")
 					log.Println()
 				}
 
 				if ev.IsAttrib() {
-					log.Println("File", eventDir, "'s attributes are changed")
-					log.Println("Will start notifying this renamed directory to other endpoints")
+					log.Println("File", eventFile, "'s attributes are changed")
+					log.Println("Will start notifying that the attributes of this directory is changed")
 					log.Println()
 				}
 			case err := <-watcher.Error:
 				log.Println("error", err)
+				done <- true
 			}
 		}
 	}()
@@ -77,7 +77,7 @@ func watchDir(done chan bool, dirs ...string) {
 		defer watcher.RemoveWatch(dir)
 		if err != nil {
 			log.Fatal(err)
-			return
+			done <- true
 		}
 	}
 
@@ -97,21 +97,16 @@ func main() {
 	log.Println("target directory: ", targetDir)
 	log.Print("Root Dir: ", rootDir)
 
-	l := list.New()
+	log.Println("Restoring db instance from json file")
+	_ = fs.GetFileDBInstance()
+	// Do the scan for the first time
+	filedb := fs.ScanDir(targetDir)
+	filedb.SaveDBAsJSON()
 
-	filepath.Walk(targetDir, fs.TraverseDir(l))
-
-	var dirSlice = make([]string, l.Len())
-
-	i := 0
-	for e := l.Front(); e != nil; e = e.Next() {
-		dirSlice[i] = e.Value.(string)
-		i++
-	}
+	dirSlice := fs.AllRecursiveDirsIn(targetDir)
 
 	done := make(chan bool)
-
-	go watchDir(done, dirSlice...)
+	go watchDir(done, dirSlice...) // start firing the file watcher
 
 	log.Println("Start setting up file watcher for each directory in ", rootDir)
 

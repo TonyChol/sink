@@ -18,3 +18,10 @@ func HardHandleErr(err error) {
 		os.Exit(1)
 	}
 }
+
+// PanicIf : Panic the program if there is an error
+func PanicIf(err error) {
+	if err != nil {
+		panic(err)
+	}
+}

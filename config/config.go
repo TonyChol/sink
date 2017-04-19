@@ -15,6 +15,7 @@ type Config struct {
 	DevPort             int
 	DevUploadURLPattern string
 	ServerFilesLocation string
+	FileDbJSONPath      string
 }
 
 var instance *Config
@@ -42,16 +43,16 @@ func loadConfig() (Config, error) {
 	if err != nil {
 		log.Fatal("Config not found", err.Error())
 		return Config{}, errors.New("Config not found")
-	} else {
-		devServer := viper.GetString("development.ServerAddr")
-		devPort := viper.GetInt("development.Port")
-		devUploadURLPattern := viper.GetString("development.UploadAddrPattern")
-		ServerFilesLocation := viper.GetString("development.ServerFilesLocation")
-		return Config{devServer,
-			devPort,
-			devUploadURLPattern,
-			ServerFilesLocation,
-		}, nil
 	}
-
+	devServer := viper.GetString("development.ServerAddr")
+	devPort := viper.GetInt("development.Port")
+	devUploadURLPattern := viper.GetString("development.UploadAddrPattern")
+	ServerFilesLocation := viper.GetString("development.ServerFilesLocation")
+	FileDbJSONPath := viper.GetString("development.FileDbJsonPath")
+	return Config{devServer,
+		devPort,
+		devUploadURLPattern,
+		ServerFilesLocation,
+		FileDbJSONPath,
+	}, nil
 }
