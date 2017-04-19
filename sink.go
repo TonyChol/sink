@@ -97,9 +97,11 @@ func main() {
 	log.Println("target directory: ", targetDir)
 	log.Print("Root Dir: ", rootDir)
 
+	log.Println("Restoring db instance from json file")
+	_ = fs.GetFileDBInstance()
 	// Do the scan for the first time
 	filedb := fs.ScanDir(targetDir)
-	log.Println(filedb.JSONStr())
+	filedb.SaveDBAsJSON()
 
 	dirSlice := fs.AllRecursiveDirsIn(targetDir)
 
