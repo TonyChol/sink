@@ -11,6 +11,7 @@ import (
 	"github.com/tonychol/sink/util"
 )
 
+// watchDir : A goroutine to watch all the directories
 func watchDir(done chan bool, dirs ...string) {
 	watcher, err := fsnotify.NewWatcher()
 	util.HandleErr(err)
