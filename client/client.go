@@ -56,9 +56,9 @@ func postFile(filename string, targetURL string) error {
 	return nil
 }
 
-// GetFilePathFromAgrs : Get the input path
+// getFilePathFromAgrs : Get the input path
 // from the command-line arguments
-func GetFilePathFromAgrs() (string, error) {
+func getFilePathFromAgrs() (string, error) {
 	argsArr := os.Args
 	if len(argsArr) < 2 {
 		err := errors.New("You should attach a file: ./client <YOUR_FILE>")
@@ -69,7 +69,7 @@ func GetFilePathFromAgrs() (string, error) {
 
 // sample usage
 func main() {
-	targetFile, err := GetFilePathFromAgrs()
+	targetFile, err := getFilePathFromAgrs()
 	util.HardHandleErr(err)
 	targetURL := "http://localhost:8181/upload"
 
