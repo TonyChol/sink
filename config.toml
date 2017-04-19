@@ -1,0 +1,5 @@
+[development]
+ServerAddr = "http://localhost"
+Port = 8181
+UploadAddrPattern = "/upload"
+ServerFilesLocation = "./files/"
