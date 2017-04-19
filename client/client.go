@@ -2,58 +2,76 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
-	"net"
+	"io/ioutil"
+	"mime/multipart"
+	"net/http"
 	"os"
 
 	"github.com/tonychol/sink/util"
 )
 
-func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s host:port", os.Args[0])
-		os.Exit(1)
-	}
-	service := os.Args[1]
-	conn, err := net.Dial("tcp", service)
-	util.HardHandleErr(err)
+// postFile : Accepts a filename with relative path
+// and its targetUrl of the server, posts the file to the server
+func postFile(filename string, targetURL string) error {
+	bodyBuf := &bytes.Buffer{}
+	bodyWriter := multipart.NewWriter(bodyBuf)
 
-	_, err = conn.Write([]byte("HEAD / HTTP/1.0\r\n\r\n"))
-	util.HardHandleErr(err)
-
-	result, err := readFully(conn)
-	util.HardHandleErr(err)
-
-	fmt.Println(string(result))
-
-	// b64Str, err := fs.Base64StrFromFile("./client")
-	// destStr := "./clientBak"
-	// err = fs.FileFromBase64Str(b64Str, destStr)
-	// util.HardHandleErr(err)
-	os.Exit(0)
-}
-
-func checkError(err error) {
+	// this step is very important
+	fileWriter, err := bodyWriter.CreateFormFile("uploadfile", filename)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
-		os.Exit(1)
+		fmt.Println("error writing to buffer")
+		return err
 	}
+
+	// open file handle
+	fh, err := os.Open(filename)
+	if err != nil {
+		fmt.Println("error opening file")
+		return err
+	}
+
+	//iocopy
+	_, err = io.Copy(fileWriter, fh)
+	if err != nil {
+		return err
+	}
+
+	contentType := bodyWriter.FormDataContentType()
+	bodyWriter.Close()
+
+	resp, err := http.Post(targetURL, contentType, bodyBuf)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Println(resp.Status)
+	fmt.Println(string(respBody))
+	return nil
 }
 
-func readFully(conn net.Conn) ([]byte, error) {
-	defer conn.Close()
-	result := bytes.NewBuffer(nil)
-	var buf [512]byte
-	for {
-		n, err := conn.Read(buf[0:])
-		result.Write(buf[0:n])
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, err
-		}
+// GetFilePathFromAgrs : Get the input path
+// from the command-line arguments
+func GetFilePathFromAgrs() (string, error) {
+	argsArr := os.Args
+	if len(argsArr) < 2 {
+		err := errors.New("You should attach a file: ./client <YOUR_FILE>")
+		return "", err
 	}
-	return result.Bytes(), nil
+	return os.Args[1], nil
+}
+
+// sample usage
+func main() {
+	targetFile, err := GetFilePathFromAgrs()
+	util.HardHandleErr(err)
+	targetURL := "http://localhost:8181/upload"
+
+	postFile(targetFile, targetURL)
 }
