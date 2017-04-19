@@ -99,7 +99,7 @@ func main() {
 
 	// Do the scan for the first time
 	filedb := fs.ScanDir(targetDir)
-	log.Println(filedb.JsonStr())
+	log.Println(filedb.JSONStr())
 
 	dirSlice := fs.AllRecursiveDirsIn(targetDir)
 

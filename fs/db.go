@@ -35,7 +35,8 @@ func GetFileDBInstance() *FileDB {
 	return instance
 }
 
-func (db *FileDB) JsonStr() string {
+// JsonStr : Convert the db map into the json string
+func (db *FileDB) JSONStr() string {
 	res, err := json.Marshal(db)
 	util.HardHandleErr(err)
 	return string(res[:])

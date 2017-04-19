@@ -105,7 +105,6 @@ func getFileType(info os.FileInfo) string {
 	if info.IsDir() {
 		return "d"
 	}
-
 	return "f"
 }
 
