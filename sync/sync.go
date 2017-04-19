@@ -1,4 +1,4 @@
-package main
+package sync
 
 import (
 	"bytes"
@@ -10,8 +10,22 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/util"
 )
+
+// SendFile : Public api that accept a file name(path) and send it to the server
+func SendFile(filename string) error {
+	targetURL := getTargetURLFromConfig()
+	return postFile(filename, targetURL)
+}
+
+// getTargetURLFromConfig : get the target url by parsing the config file
+func getTargetURLFromConfig() string {
+	conf := config.GetInstance()
+	targetURL := conf.DevServer + fmt.Sprintf(":%d", conf.DevPort) + conf.DevUploadURLPattern
+	return targetURL
+}
 
 // postFile : Accepts a filename with relative path
 // and its targetUrl of the server, posts the file to the server
@@ -56,9 +70,9 @@ func postFile(filename string, targetURL string) error {
 	return nil
 }
 
-// GetFilePathFromAgrs : Get the input path
+// getFilePathFromAgrs : Get the input path
 // from the command-line arguments
-func GetFilePathFromAgrs() (string, error) {
+func getFilePathFromAgrs() (string, error) {
 	argsArr := os.Args
 	if len(argsArr) < 2 {
 		err := errors.New("You should attach a file: ./client <YOUR_FILE>")
@@ -69,9 +83,8 @@ func GetFilePathFromAgrs() (string, error) {
 
 // sample usage
 func main() {
-	targetFile, err := GetFilePathFromAgrs()
+	targetFile, err := getFilePathFromAgrs()
 	util.HardHandleErr(err)
 	targetURL := "http://localhost:8181/upload"
-
 	postFile(targetFile, targetURL)
 }
