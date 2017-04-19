@@ -68,6 +68,7 @@ func watchDir(done chan bool, dirs ...string) {
 				}
 			case err := <-watcher.Error:
 				log.Println("error", err)
+				done <- true
 			}
 		}
 	}()
@@ -77,11 +78,28 @@ func watchDir(done chan bool, dirs ...string) {
 		defer watcher.RemoveWatch(dir)
 		if err != nil {
 			log.Fatal(err)
-			return
+			done <- true
 		}
 	}
 
 	<-done
+}
+
+// allRecursiveDirsIn : Get all the directories string inside the dirPath
+func allRecursiveDirsIn(dirPath string) []string {
+	l := list.New()
+
+	filepath.Walk(dirPath, fs.TraverseDir(l))
+
+	var dirSlice = make([]string, l.Len())
+
+	i := 0
+	for e := l.Front(); e != nil; e = e.Next() {
+		dirSlice[i] = e.Value.(string)
+		i++
+	}
+
+	return dirSlice
 }
 
 func main() {
@@ -97,20 +115,9 @@ func main() {
 	log.Println("target directory: ", targetDir)
 	log.Print("Root Dir: ", rootDir)
 
-	l := list.New()
-
-	filepath.Walk(targetDir, fs.TraverseDir(l))
-
-	var dirSlice = make([]string, l.Len())
-
-	i := 0
-	for e := l.Front(); e != nil; e = e.Next() {
-		dirSlice[i] = e.Value.(string)
-		i++
-	}
+	dirSlice := allRecursiveDirsIn(targetDir)
 
 	done := make(chan bool)
-
 	go watchDir(done, dirSlice...)
 
 	log.Println("Start setting up file watcher for each directory in ", rootDir)
