@@ -1,6 +1,6 @@
 [development]
 ServerAddr = "http://localhost"
-Port = 8181
+Port = 8182
 UploadAddrPattern = "/upload"
 ServerFilesLocation = "./files/"
 FileDbJsonPath = "./filedb.json"
