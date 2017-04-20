@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
-
-	"log"
 
 	"path/filepath"
 
@@ -60,8 +59,6 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	} else {
 		relativePath := r.FormValue("relativePath")
 		filename := r.FormValue("filename")
-		log.Println("relative path is", relativePath)
-		log.Println("file name is", filename)
 
 		r.ParseMultipartForm(32 << 20)
 		file, handler, err := r.FormFile("uploadfile")
@@ -77,7 +74,6 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		util.HardHandleErr(err)
 
 		targetFilePath := baseDir + relativePath + string(filepath.Separator) + filename
-		log.Println("Target file path =", targetFilePath)
 		f, err := os.OpenFile(targetFilePath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			fmt.Println(err)
