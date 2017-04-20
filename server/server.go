@@ -79,7 +79,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 			return
 		}
-		log.Println("Method:", r.Method, " , file", filename, " has been received from client")
+		log.Println("Method:", r.Method, ", file", filename, "has been received from client")
 		defer f.Close()
 		io.Copy(f, file)
 	}
