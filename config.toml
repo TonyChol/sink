@@ -5,3 +5,12 @@ UploadAddrPattern = "/upload"
 ServerFilesLocation = "./files/"
 FileDbJsonPath = "./filedb.json"
 SyncRoot = "$GOPATH/src/github.com/tonychol/sink/testDir"
+
+
+[production]
+ServerAddr = "http://localhost"
+Port = 80
+UploadAddrPattern = "/upload"
+ServerFilesLocation = "./files/"
+FileDbJsonPath = "./filedb.json"
+SyncRoot = "$GOPATH/src/github.com/tonychol/sink/testDir"

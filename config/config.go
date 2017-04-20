@@ -1,9 +1,8 @@
 package config
 
 import (
-	"log"
-
 	"errors"
+	"log"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -28,6 +27,7 @@ func GetInstance() *Config {
 		validConfig, err := loadConfig()
 		if err != nil {
 			log.Fatal("Config not initialized")
+			panic(err)
 		} else {
 			instance = &validConfig
 		}
