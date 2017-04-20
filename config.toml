@@ -1,7 +1,7 @@
 [development]
 ServerAddr = "http://localhost"
-Port = 8181
+Port = 8182
 UploadAddrPattern = "/upload"
 ServerFilesLocation = "./files/"
 FileDbJsonPath = "./filedb.json"
-SyncRoot = "$GOPATH/src/github.com/tonychol/sink/testDir"
+SyncRoot = "$GOPATH/src/github.com/tonychol/sink/sync"
