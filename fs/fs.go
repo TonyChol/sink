@@ -45,44 +45,6 @@ func TraverseDir(fl *list.List) filepath.WalkFunc {
 	}
 }
 
-// UpdateFileDB : A filepath.WalkFunc function that updates the db
-// whenever it meets a file in the synching directory
-func updateFileDB(fileDB *FileDB) filepath.WalkFunc {
-	return func(path string, info os.FileInfo, err error) error {
-		// 1. [x] get file type
-		// 2. [x] get file mode
-		// 3. [x] get checksum of the file if it is not directory
-		// 4. [x] get the last modify
-		var checkSum string
-		if info.IsDir() {
-			checkSum = ""
-		} else {
-			checkSum, err = getCheckSumOfFile(path)
-			if err != nil {
-				log.Fatal("Checksum error", err)
-				return err
-			}
-		}
-
-		fileDBEle := FileDBElement{}
-		fileDBEle.FileType = getFileType(info)
-		fileDBEle.Mode = getFileMode(info)
-		fileDBEle.CheckSum = checkSum
-		fileDBEle.LastModify = info.ModTime()
-		(*fileDB)[path] = fileDBEle
-
-		return nil
-	}
-}
-
-// ScanDir : Scan the whole directory to update the file database
-// and store some information
-func ScanDir(dirPath string) *FileDB {
-	filedb := GetFileDBInstance()
-	filepath.Walk(dirPath, updateFileDB(filedb))
-	return filedb
-}
-
 // AllRecursiveDirsIn : Get all the directories string inside the dirPath
 func AllRecursiveDirsIn(dirPath string) []string {
 	l := list.New()
