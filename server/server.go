@@ -15,8 +15,12 @@ import (
 
 	"log"
 
+	"path/filepath"
+
 	"github.com/tonychol/sink/util"
 )
+
+const baseDir = "." + string(filepath.Separator) + "test" + string(filepath.Separator)
 
 func main() {
 	http.HandleFunc("/upload", upload)
@@ -54,6 +58,11 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		t, _ := template.ParseFiles("upload.gtpl")
 		t.Execute(w, token)
 	} else {
+		relativePath := r.FormValue("relativePath")
+		filename := r.FormValue("filename")
+		log.Println("relative path is", relativePath)
+		log.Println("file name is", filename)
+
 		r.ParseMultipartForm(32 << 20)
 		file, handler, err := r.FormFile("uploadfile")
 		if err != nil {
@@ -62,7 +71,14 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 		fmt.Fprintf(w, "%v", handler.Header)
-		f, err := os.OpenFile("./test/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+
+		// Try to create the directory to hold the target incoming file if not exist
+		err = createDirIfNotExist(relativePath)
+		util.HardHandleErr(err)
+
+		targetFilePath := baseDir + relativePath + string(filepath.Separator) + filename
+		log.Println("Target file path =", targetFilePath)
+		f, err := os.OpenFile(targetFilePath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -70,4 +86,8 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		defer f.Close()
 		io.Copy(f, file)
 	}
+}
+
+func createDirIfNotExist(targetDir string) error {
+	return os.MkdirAll(baseDir+targetDir, 0777)
 }

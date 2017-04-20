@@ -8,7 +8,12 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/tonychol/sink/config"
 )
 
 // GetAbsolutePath : Get the absolute path
@@ -62,26 +67,51 @@ func AllRecursiveDirsIn(dirPath string) []string {
 	return dirSlice
 }
 
-// getFileType : Get type according to the file info
-func getFileType(info os.FileInfo) string {
+// GetRelativeDirFromRoot returns a relative path that is lexically equivalent
+// to targpath when joined to basepath (which in this case is the root dir of the synced dir.
+func GetRelativeDirFromRoot(filename string) (string, error) {
+	targetFileDir := getDirOfFile(filename)
+	absBasePath := absPathify(config.GetInstance().SyncRoot)
+	return filepath.Rel(absBasePath, targetFileDir)
+}
+
+// getFileNameFromFilePath accepts a file path and returns the name of this file.
+// Reference: https://golang.org/src/path/filepath/path.go?s=12262:12291#L416
+func GetFileNameFromFilePath(fpath string) string {
+	return filepath.Base(fpath)
+}
+
+// GetDirOfFile returns all but the last element of path,
+// typically the path's directory.
+// After dropping the final element using Split, the path is Cleaned and trailing slashes are removed.
+// If the path is empty, Dir returns ".".
+// If the path consists entirely of slashes followed by non-slash bytes,
+// Dir returns a single slash.
+// In any other case, the returned path does not end in a slash.
+func getDirOfFile(filepath string) string {
+	return path.Dir(filepath)
+}
+
+// GetFileType : Get type according to the file info
+func GetFileType(info os.FileInfo) string {
 	if info.IsDir() {
 		return "d"
 	}
 	return "f"
 }
 
-// getFileMode : Get the fileMode string of the file
+// GetFileMode : Get the fileMode string of the file
 // A FileMode represents a file's mode and permission bits.
 // The bits have the same definition on all systems, so that
 // information about files can be moved from one system
 // to another portably. Not all bits apply to all systems.
-func getFileMode(info os.FileInfo) os.FileMode {
+func GetFileMode(info os.FileInfo) os.FileMode {
 	return info.Mode()
 }
 
-// getCheckSumOfFile : Get the checksum string of one file
+// GetCheckSumOfFile : Get the checksum string of one file
 // returns error if the filePath is not valid
-func getCheckSumOfFile(filePath string) (string, error) {
+func GetCheckSumOfFile(filePath string) (string, error) {
 	var returnMD5String string
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -95,4 +125,39 @@ func getCheckSumOfFile(filePath string) (string, error) {
 	hashInBytes := hash.Sum(nil)[:16]
 	returnMD5String = hex.EncodeToString(hashInBytes)
 	return returnMD5String, nil
+}
+
+// Private functions
+
+func absPathify(inPath string) string {
+	if strings.HasPrefix(inPath, "$HOME") {
+		inPath = userHomeDir() + inPath[5:]
+	}
+
+	if strings.HasPrefix(inPath, "$") {
+		end := strings.Index(inPath, string(os.PathSeparator))
+		inPath = os.Getenv(inPath[1:end]) + inPath[end:]
+	}
+
+	if filepath.IsAbs(inPath) {
+		return filepath.Clean(inPath)
+	}
+
+	p, err := filepath.Abs(inPath)
+	if err == nil {
+		return filepath.Clean(p)
+	}
+
+	return ""
+}
+
+func userHomeDir() string {
+	if runtime.GOOS == "windows" {
+		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
+		if home == "" {
+			home = os.Getenv("USERPROFILE")
+		}
+		return home
+	}
+	return os.Getenv("HOME")
 }
