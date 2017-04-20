@@ -20,6 +20,7 @@ import (
 
 func main() {
 	http.HandleFunc("/upload", upload)
+	log.Println("Server has been set up at :8181")
 	err := http.ListenAndServe(":8181", nil) // set listen port
 	util.HardHandleErr(err)
 }
