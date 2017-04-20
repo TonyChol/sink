@@ -20,7 +20,7 @@ import (
 	"github.com/tonychol/sink/util"
 )
 
-const baseDir = "." + string(filepath.Separator) + "test" + string(filepath.Separator)
+const baseDir = "." + string(filepath.Separator) + "sync" + string(filepath.Separator)
 
 func main() {
 	http.HandleFunc("/upload", upload)
