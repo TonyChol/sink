@@ -6,6 +6,7 @@ import (
 
 	"github.com/howeyc/fsnotify"
 	"github.com/tonychol/sink/fs"
+	"github.com/tonychol/sink/scanner"
 	"github.com/tonychol/sink/util"
 )
 
@@ -84,6 +85,13 @@ func watchDir(done chan bool, dirs ...string) {
 	<-done
 }
 
+// getFileDB : At the beginning of the program, the db file
+// that describes the synching directory is restored
+func getFileDB() {
+	log.Println("Restoring db instance from json file")
+	_ = fs.GetFileDBInstance()
+}
+
 func main() {
 
 	rootDir, err := fs.GetAbsolutePath()
@@ -92,15 +100,14 @@ func main() {
 	relativeDir, err := fs.GetDirPathFromAgrs()
 	util.HandleErr(err)
 
-	targetDir := rootDir + "/" + relativeDir
+	getFileDB()
 
+	targetDir := rootDir + "/" + relativeDir
 	log.Println("target directory: ", targetDir)
 	log.Print("Root Dir: ", rootDir)
 
-	log.Println("Restoring db instance from json file")
-	_ = fs.GetFileDBInstance()
 	// Do the scan for the first time
-	filedb := fs.ScanDir(targetDir)
+	filedb := scanner.ScanDir(targetDir)
 	filedb.SaveDBAsJSON()
 
 	dirSlice := fs.AllRecursiveDirsIn(targetDir)

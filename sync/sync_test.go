@@ -10,3 +10,8 @@ func TestGetTargetURLFromConfig(t *testing.T) {
 		t.Errorf("Expected http://localhost:8181/upload but get %s", targetURL)
 	}
 }
+
+func TestSendFile(t *testing.T) {
+	fileToSend := "./sync.go"
+	SendFile(fileToSend)
+}

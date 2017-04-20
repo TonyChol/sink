@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 
 	"github.com/tonychol/sink/config"
+	"github.com/tonychol/sink/fs"
 	"github.com/tonychol/sink/util"
 )
 
@@ -27,14 +29,22 @@ func getTargetURLFromConfig() string {
 	return targetURL
 }
 
-// postFile : Accepts a filename with relative path
+// postFile : Accepts a filename which is a relative path
 // and its targetUrl of the server, posts the file to the server
 func postFile(filename string, targetURL string) error {
 	bodyBuf := &bytes.Buffer{}
 	bodyWriter := multipart.NewWriter(bodyBuf)
 
+	relativePath, err := fs.GetRelativeDirFromRoot(filename)
+	util.HardHandleErr(err)
+	fileFullName := fs.GetFileNameFromFilePath(filename)
+	log.Println("relative path =", relativePath)
+	log.Println("file full name =", fileFullName)
 	// this step is very important
+	bodyWriter.WriteField("relativePath", relativePath)
+	bodyWriter.WriteField("filename", fileFullName)
 	fileWriter, err := bodyWriter.CreateFormFile("uploadfile", filename)
+
 	if err != nil {
 		fmt.Println("error writing to buffer")
 		return err
@@ -81,10 +91,10 @@ func getFilePathFromAgrs() (string, error) {
 	return os.Args[1], nil
 }
 
-// sample usage
-func main() {
-	targetFile, err := getFilePathFromAgrs()
-	util.HardHandleErr(err)
-	targetURL := "http://localhost:8181/upload"
-	postFile(targetFile, targetURL)
-}
+// // sample usage
+// func main() {
+// 	targetFile, err := getFilePathFromAgrs()
+// 	util.HardHandleErr(err)
+// 	targetURL := "http://localhost:8181/upload"
+// 	postFile(targetFile, targetURL)
+// }
