@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 
+	"os/signal"
+
 	"github.com/howeyc/fsnotify"
 	"github.com/tonychol/sink/fs"
 	"github.com/tonychol/sink/scanner"
@@ -103,9 +105,12 @@ func main() {
 	done := make(chan bool)
 	go watchDir(done, dirSlice...) // start firing the file watcher
 
-	log.Println("Start setting up file watcher for each directory in ", rootDir)
+	log.Println("Start setting up file watcher for each directory in ", targetDir)
 
-	exit := make(chan bool)
-	<-exit
+	sigchan := make(chan os.Signal, 10)
+	signal.Notify(sigchan, os.Interrupt)
+	<-sigchan
 	done <- true
+	log.Println("\nSink program got killed !")
+	os.Exit(0)
 }
