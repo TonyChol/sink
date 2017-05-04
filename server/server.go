@@ -15,6 +15,10 @@ import (
 	"strconv"
 	"time"
 
+	"encoding/json"
+
+	"github.com/tonychol/sink/networking"
+	"github.com/tonychol/sink/sync"
 	"github.com/tonychol/sink/util"
 )
 
@@ -22,6 +26,7 @@ const baseDir = "." + string(filepath.Separator) + "sync" + string(filepath.Sepa
 
 func main() {
 	http.HandleFunc("/upload", upload)
+	http.HandleFunc("/socketPort", getFreePort)
 	log.Println("Server has been set up at :8181")
 	err := http.ListenAndServe(":8181", nil) // set listen port
 	util.HardHandleErr(err)
@@ -81,6 +86,45 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		log.Println("Method:", r.Method, ", file", filename, "has been received from client")
 		defer f.Close()
 		io.Copy(f, file)
+	}
+}
+
+// getFreePort is a handler function that accept an Http GET request and
+// send the next free available port back to the client
+func getFreePort(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		w.Header().Set("Content-Type", "application/json")
+
+		var res networking.PortPayload
+		newport, err := sync.GetAvailablePort()
+		if err != nil {
+			log.Fatal("can not a free port in server, ", err)
+			res = networking.PortPayload{
+				Status: http.StatusServiceUnavailable,
+				Data: networking.PortData{
+					Port: 0,
+				},
+			}
+		} else {
+			res = networking.PortPayload{
+				Status: http.StatusOK,
+				Data: networking.PortData{
+					Port: newport,
+				},
+			}
+		}
+
+		// send response as json
+		json.NewEncoder(w).Encode(res)
+
+	} else {
+		resErr := networking.PortPayload{
+			Status: http.StatusMethodNotAllowed,
+			Data: networking.PortData{
+				Port: 0,
+			},
+		}
+		json.NewEncoder(w).Encode(resErr)
 	}
 }
 

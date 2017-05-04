@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"os"
 
@@ -91,10 +92,17 @@ func getFilePathFromAgrs() (string, error) {
 	return os.Args[1], nil
 }
 
-// // sample usage
-// func main() {
-// 	targetFile, err := getFilePathFromAgrs()
-// 	util.HardHandleErr(err)
-// 	targetURL := "http://localhost:8181/upload"
-// 	postFile(targetFile, targetURL)
-// }
+// GetAvailablePort asks the kernel for a free open port that is ready to use
+func GetAvailablePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
