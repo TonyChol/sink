@@ -93,8 +93,6 @@ func main() {
 	getFileDB()
 
 	targetDir := rootDir + "/" + relativeDir
-	log.Println("target directory: ", targetDir)
-	log.Print("Root Dir: ", rootDir)
 
 	// Do the scan for the first time
 	filedb := scanner.ScanDir(targetDir)
@@ -107,6 +105,8 @@ func main() {
 
 	log.Println("Start setting up file watcher for each directory in ", targetDir)
 
+	// wait for exit signal
+	// reference: http://stackoverflow.com/questions/8403862/do-actions-on-end-of-execution
 	sigchan := make(chan os.Signal, 10)
 	signal.Notify(sigchan, os.Interrupt)
 	<-sigchan

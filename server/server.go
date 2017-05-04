@@ -11,10 +11,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
-
-	"path/filepath"
 
 	"github.com/tonychol/sink/util"
 )
@@ -56,17 +55,17 @@ func upload(w http.ResponseWriter, r *http.Request) {
 
 		t, _ := template.ParseFiles("upload.gtpl")
 		t.Execute(w, token)
-	} else {
+	} else if r.Method == "POST" {
 		relativePath := r.FormValue("relativePath")
 		filename := r.FormValue("filename")
 
 		r.ParseMultipartForm(32 << 20)
 		file, handler, err := r.FormFile("uploadfile")
+		defer file.Close()
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		defer file.Close()
 		fmt.Fprintf(w, "%v", handler.Header)
 
 		// Try to create the directory to hold the target incoming file if not exist
