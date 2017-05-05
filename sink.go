@@ -1,13 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
-
 	"os/signal"
 
 	"github.com/howeyc/fsnotify"
+	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/fs"
+	"github.com/tonychol/sink/networking"
 	"github.com/tonychol/sink/scanner"
 	"github.com/tonychol/sink/sync"
 	"github.com/tonychol/sink/util"
@@ -86,7 +88,6 @@ func getFileDB() {
 }
 
 func main() {
-
 	rootDir, err := fs.GetAbsolutePath()
 	util.HandleErr(err)
 
@@ -103,10 +104,12 @@ func main() {
 
 	dirSlice := fs.AllRecursiveDirsIn(targetDir)
 
+	// start firing the file watcher
 	done := make(chan bool)
-	go watchDir(done, dirSlice...) // start firing the file watcher
-
+	go watchDir(done, dirSlice...)
 	log.Println("Start setting up file watcher for each directory in ", targetDir)
+	// launch socket connection
+	go getFreePort()
 
 	// wait for exit signal
 	// reference: http://stackoverflow.com/questions/8403862/do-actions-on-end-of-execution
@@ -116,4 +119,15 @@ func main() {
 	done <- true
 	log.Println("\nSink program got killed !")
 	os.Exit(0)
+}
+
+func getFreePort() {
+	var res = &(networking.PortPayload{})
+	// remoteAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", config.GetInstance().DevPort) + "/socketPort"
+	remoteAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", 8181) + "/socketPort"
+	networking.GetJSON(remoteAddr, res)
+
+	// start accepting files
+	socketAddr := fmt.Sprintf("localhost:%d", res.Data.Port)
+	sync.ConnectSocket(socketAddr)
 }
