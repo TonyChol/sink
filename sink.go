@@ -55,7 +55,10 @@ func watchDir(done chan bool, dirs ...string) {
 
 				if ev.IsAttrib() {
 				}
-				sync.SendFile(eventFile)
+				err := sync.SendFile(eventFile)
+				if err != nil {
+					log.Printf("Can not send file %v: %v", eventFile, err)
+				}
 			case err := <-watcher.Error:
 				log.Println("error", err)
 				done <- true
