@@ -1,10 +1,12 @@
 [development]
-ServerAddr = "http://localhost"
-Port = 8182
+ServerAddr = "192.168.50.4"
+Port = 8181
 UploadAddrPattern = "/upload"
 ServerFilesLocation = "./files/"
 FileDbJsonPath = "./filedb.json"
 SyncRoot = "$GOPATH/src/github.com/tonychol/sink/testDir"
+BufferSize = 1024
+FreeSocketPattern = "/socketPort"
 
 
 [production]
@@ -14,3 +16,5 @@ UploadAddrPattern = "/upload"
 ServerFilesLocation = "./files/"
 FileDbJsonPath = "./filedb.json"
 SyncRoot = "$GOPATH/src/github.com/tonychol/sink/testDir"
+BufferSize = 1024
+FreeSocketPattern = "/socketPort"

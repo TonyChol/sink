@@ -1,11 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"os/signal"
 
 	"github.com/howeyc/fsnotify"
+	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/fs"
+	"github.com/tonychol/sink/networking"
 	"github.com/tonychol/sink/scanner"
 	"github.com/tonychol/sink/sync"
 	"github.com/tonychol/sink/util"
@@ -53,7 +57,10 @@ func watchDir(done chan bool, dirs ...string) {
 
 				if ev.IsAttrib() {
 				}
-				sync.SendFile(eventFile)
+				err := sync.SendFile(eventFile)
+				if err != nil {
+					log.Printf("Can not send file %v: %v", eventFile, err)
+				}
 			case err := <-watcher.Error:
 				log.Println("error", err)
 				done <- true
@@ -81,7 +88,6 @@ func getFileDB() {
 }
 
 func main() {
-
 	rootDir, err := fs.GetAbsolutePath()
 	util.HandleErr(err)
 
@@ -91,8 +97,6 @@ func main() {
 	getFileDB()
 
 	targetDir := rootDir + "/" + relativeDir
-	log.Println("target directory: ", targetDir)
-	log.Print("Root Dir: ", rootDir)
 
 	// Do the scan for the first time
 	filedb := scanner.ScanDir(targetDir)
@@ -100,12 +104,32 @@ func main() {
 
 	dirSlice := fs.AllRecursiveDirsIn(targetDir)
 
+	// start firing the file watcher
 	done := make(chan bool)
-	go watchDir(done, dirSlice...) // start firing the file watcher
+	go watchDir(done, dirSlice...)
+	log.Println("Start setting up file watcher for each directory in ", targetDir)
+	// launch socket connection
+	go getFreePort()
 
-	log.Println("Start setting up file watcher for each directory in ", rootDir)
-
-	exit := make(chan bool)
-	<-exit
+	// wait for exit signal
+	// reference: http://stackoverflow.com/questions/8403862/do-actions-on-end-of-execution
+	sigchan := make(chan os.Signal, 10)
+	signal.Notify(sigchan, os.Interrupt)
+	<-sigchan
 	done <- true
+	log.Println("\nSink program got killed !")
+	os.Exit(0)
+}
+
+func getFreePort() {
+	var res = &(networking.PortPayload{})
+	conf := config.GetInstance()
+	// remoteAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", config.GetInstance().DevPort) + "/socketPort"
+	remoteAddr := conf.DevServer + fmt.Sprintf(":%d", conf.DevPort) + conf.FreeSocketPattern
+	// Get available port for socket connection from server
+	networking.GetJSON(remoteAddr, res)
+
+	// start accepting files
+	socketAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", res.Data.Port)
+	sync.ConnectSocket(socketAddr)
 }

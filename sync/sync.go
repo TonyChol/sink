@@ -8,8 +8,11 @@ import (
 	"io/ioutil"
 	"log"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/fs"
@@ -91,10 +94,63 @@ func getFilePathFromAgrs() (string, error) {
 	return os.Args[1], nil
 }
 
-// // sample usage
-// func main() {
-// 	targetFile, err := getFilePathFromAgrs()
-// 	util.HardHandleErr(err)
-// 	targetURL := "http://localhost:8181/upload"
-// 	postFile(targetFile, targetURL)
-// }
+// GetAvailablePort asks the kernel for a free open port that is ready to use
+func GetAvailablePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+// ConnectSocket enables client to connect
+func ConnectSocket(remoteAddr string) {
+	log.Println("new connection: ", remoteAddr)
+	connection, err := net.Dial("tcp", remoteAddr)
+	if err != nil {
+		panic(err)
+	}
+	defer connection.Close()
+	fmt.Println("Connected to server, start receiving the file name and file size")
+
+	accpetFilesFrom(connection)
+}
+
+func accpetFilesFrom(connection net.Conn) {
+	bufferSize := config.GetInstance().BufferSize
+	for {
+		bufferFileName := make([]byte, 64)
+		bufferFileSize := make([]byte, 10)
+
+		connection.Read(bufferFileSize)
+		fileSize, _ := strconv.ParseInt(strings.Trim(string(bufferFileSize), ":"), 10, 64)
+
+		connection.Read(bufferFileName)
+		fileName := strings.Trim(string(bufferFileName), ":")
+
+		newFile, err := os.Create(fileName)
+
+		if err != nil {
+			panic(err)
+		}
+		defer newFile.Close()
+		var receivedBytes int64
+
+		for {
+			if (fileSize - receivedBytes) < bufferSize {
+				io.CopyN(newFile, connection, (fileSize - receivedBytes))
+				connection.Read(make([]byte, (receivedBytes+bufferSize)-fileSize))
+				break
+			}
+			io.CopyN(newFile, connection, bufferSize)
+			receivedBytes += bufferSize
+		}
+		fmt.Printf("\n Received file %v", fileName)
+	}
+}

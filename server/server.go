@@ -1,9 +1,8 @@
-/* ThreadedIPEchoServer
- */
 package main
 
 import (
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -11,20 +10,25 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
-	"path/filepath"
-
+	"github.com/tonychol/sink/config"
+	"github.com/tonychol/sink/networking"
+	"github.com/tonychol/sink/sync"
 	"github.com/tonychol/sink/util"
 )
 
 const baseDir = "." + string(filepath.Separator) + "sync" + string(filepath.Separator)
 
 func main() {
+	pool := make(networking.SocketPool)
 	http.HandleFunc("/upload", upload)
-	log.Println("Server has been set up at :8181")
-	err := http.ListenAndServe(":8181", nil) // set listen port
+	http.HandleFunc("/socketPort", getFreePort(pool))
+	sevrAddr := fmt.Sprintf(":%d", config.GetInstance().DevPort)
+	log.Printf("Server has been set up at :%v\n", sevrAddr)
+	err := http.ListenAndServe(sevrAddr, nil) // set listen port
 	util.HardHandleErr(err)
 }
 
@@ -56,17 +60,17 @@ func upload(w http.ResponseWriter, r *http.Request) {
 
 		t, _ := template.ParseFiles("upload.gtpl")
 		t.Execute(w, token)
-	} else {
+	} else if r.Method == "POST" {
 		relativePath := r.FormValue("relativePath")
 		filename := r.FormValue("filename")
 
 		r.ParseMultipartForm(32 << 20)
 		file, handler, err := r.FormFile("uploadfile")
+		defer file.Close()
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		defer file.Close()
 		fmt.Fprintf(w, "%v", handler.Header)
 
 		// Try to create the directory to hold the target incoming file if not exist
@@ -82,6 +86,51 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		log.Println("Method:", r.Method, ", file", filename, "has been received from client")
 		defer f.Close()
 		io.Copy(f, file)
+	}
+}
+
+// getFreePort is a handler function that accept an Http GET request and
+// send the next free available port back to the client.
+func getFreePort(pool networking.SocketPool) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "GET" {
+
+			var res networking.PortPayload
+			newport, err := sync.GetAvailablePort()
+			// Start new port serving a new socket connection
+			go networking.ServeWithSocket(newport, &pool)
+
+			// Making response
+			if err != nil {
+				log.Println("can not get a free port in server, ", err)
+				res = networking.PortPayload{
+					Status: http.StatusServiceUnavailable,
+					Data: networking.PortData{
+						Port: 0,
+					},
+				}
+			} else {
+				res = networking.PortPayload{
+					Status: http.StatusOK,
+					Data: networking.PortData{
+						Port: newport,
+					},
+				}
+			}
+
+			// send response as json
+			json.NewEncoder(w).Encode(res)
+
+		} else {
+			resErr := networking.PortPayload{
+				Status: http.StatusMethodNotAllowed,
+				Data: networking.PortData{
+					Port: 0,
+				},
+			}
+			json.NewEncoder(w).Encode(resErr)
+		}
 	}
 }
 
