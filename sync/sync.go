@@ -151,6 +151,6 @@ func accpetFilesFrom(connection net.Conn) {
 			io.CopyN(newFile, connection, bufferSize)
 			receivedBytes += bufferSize
 		}
-		fmt.Printf("Received file %v completely!", fileName)
+		fmt.Printf("\n Received file %v", fileName)
 	}
 }

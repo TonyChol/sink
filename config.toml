@@ -6,7 +6,7 @@ ServerFilesLocation = "./files/"
 FileDbJsonPath = "./filedb.json"
 SyncRoot = "$GOPATH/src/github.com/tonychol/sink/testDir"
 BufferSize = 1024
-SocketEndpoint = "/socketPort"
+FreeSocketPattern = "/socketPort"
 
 
 [production]
@@ -17,4 +17,4 @@ ServerFilesLocation = "./files/"
 FileDbJsonPath = "./filedb.json"
 SyncRoot = "$GOPATH/src/github.com/tonychol/sink/testDir"
 BufferSize = 1024
-SocketEndpoint = "/socketPort"
+FreeSocketPattern = "/socketPort"

@@ -124,7 +124,7 @@ func main() {
 func getFreePort() {
 	var res = &(networking.PortPayload{})
 	// remoteAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", config.GetInstance().DevPort) + "/socketPort"
-	remoteAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", 8181) + "/socketPort"
+	remoteAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", 8181) + config.GetInstance().FreeSocketPattern
 	networking.GetJSON(remoteAddr, res)
 
 	// start accepting files
