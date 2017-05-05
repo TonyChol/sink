@@ -1,9 +1,8 @@
-/* ThreadedIPEchoServer
- */
 package main
 
 import (
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -15,8 +14,7 @@ import (
 	"strconv"
 	"time"
 
-	"encoding/json"
-
+	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/networking"
 	"github.com/tonychol/sink/sync"
 	"github.com/tonychol/sink/util"
@@ -25,10 +23,12 @@ import (
 const baseDir = "." + string(filepath.Separator) + "sync" + string(filepath.Separator)
 
 func main() {
+	pool := make(networking.SocketPool)
 	http.HandleFunc("/upload", upload)
-	http.HandleFunc("/socketPort", getFreePort)
-	log.Println("Server has been set up at :8181")
-	err := http.ListenAndServe(":8181", nil) // set listen port
+	http.HandleFunc("/socketPort", getFreePort(pool))
+	sevrAddr := fmt.Sprintf(":%d", config.GetInstance().DevPort)
+	log.Printf("Server has been set up at :%v\n", sevrAddr)
+	err := http.ListenAndServe(sevrAddr, nil) // set listen port
 	util.HardHandleErr(err)
 }
 
@@ -90,41 +90,47 @@ func upload(w http.ResponseWriter, r *http.Request) {
 }
 
 // getFreePort is a handler function that accept an Http GET request and
-// send the next free available port back to the client
-func getFreePort(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
+// send the next free available port back to the client.
+func getFreePort(pool networking.SocketPool) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "GET" {
 
-		var res networking.PortPayload
-		newport, err := sync.GetAvailablePort()
-		if err != nil {
-			log.Fatal("can not a free port in server, ", err)
-			res = networking.PortPayload{
-				Status: http.StatusServiceUnavailable,
+			var res networking.PortPayload
+			newport, err := sync.GetAvailablePort()
+			// Start new port serving a new socket connection
+			go networking.ServeWithSocket(newport, &pool)
+
+			// Making response
+			if err != nil {
+				log.Println("can not get a free port in server, ", err)
+				res = networking.PortPayload{
+					Status: http.StatusServiceUnavailable,
+					Data: networking.PortData{
+						Port: 0,
+					},
+				}
+			} else {
+				res = networking.PortPayload{
+					Status: http.StatusOK,
+					Data: networking.PortData{
+						Port: newport,
+					},
+				}
+			}
+
+			// send response as json
+			json.NewEncoder(w).Encode(res)
+
+		} else {
+			resErr := networking.PortPayload{
+				Status: http.StatusMethodNotAllowed,
 				Data: networking.PortData{
 					Port: 0,
 				},
 			}
-		} else {
-			res = networking.PortPayload{
-				Status: http.StatusOK,
-				Data: networking.PortData{
-					Port: newport,
-				},
-			}
+			json.NewEncoder(w).Encode(resErr)
 		}
-
-		// send response as json
-		json.NewEncoder(w).Encode(res)
-
-	} else {
-		resErr := networking.PortPayload{
-			Status: http.StatusMethodNotAllowed,
-			Data: networking.PortData{
-				Port: 0,
-			},
-		}
-		json.NewEncoder(w).Encode(resErr)
 	}
 }
 

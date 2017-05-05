@@ -11,6 +11,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/fs"
@@ -105,4 +107,50 @@ func GetAvailablePort() (int, error) {
 	}
 	defer l.Close()
 	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+// ConnectSocket enables client to connect
+func ConnectSocket(remoteAddr string) {
+	log.Println("new connection: ", remoteAddr)
+	connection, err := net.Dial("tcp", remoteAddr)
+	if err != nil {
+		panic(err)
+	}
+	defer connection.Close()
+	fmt.Println("Connected to server, start receiving the file name and file size")
+
+	accpetFilesFrom(connection)
+}
+
+func accpetFilesFrom(connection net.Conn) {
+	bufferSize := config.GetInstance().BufferSize
+	for {
+		bufferFileName := make([]byte, 64)
+		bufferFileSize := make([]byte, 10)
+
+		connection.Read(bufferFileSize)
+		fileSize, _ := strconv.ParseInt(strings.Trim(string(bufferFileSize), ":"), 10, 64)
+
+		connection.Read(bufferFileName)
+		fileName := strings.Trim(string(bufferFileName), ":")
+
+		newFile, err := os.Create(fileName)
+
+		if err != nil {
+			panic(err)
+		}
+		defer newFile.Close()
+		var receivedBytes int64
+
+		for {
+			if (fileSize - receivedBytes) < bufferSize {
+				io.CopyN(newFile, connection, (fileSize - receivedBytes))
+				connection.Read(make([]byte, (receivedBytes+bufferSize)-fileSize))
+				break
+			}
+			io.CopyN(newFile, connection, bufferSize)
+			receivedBytes += bufferSize
+		}
+		fmt.Printf("\n Received file %v", fileName)
+	}
 }
