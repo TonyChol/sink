@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/networking"
 	"github.com/tonychol/sink/sync"
 	"github.com/tonychol/sink/util"
@@ -25,8 +26,9 @@ func main() {
 	pool := make(networking.SocketPool)
 	http.HandleFunc("/upload", upload)
 	http.HandleFunc("/socketPort", getFreePort(pool))
-	log.Println("Server has been set up at :8181")
-	err := http.ListenAndServe(":8181", nil) // set listen port
+	sevrAddr := fmt.Sprintf(":%d", config.GetInstance().DevPort)
+	log.Printf("Server has been set up at :%v\n", sevrAddr)
+	err := http.ListenAndServe(sevrAddr, nil) // set listen port
 	util.HardHandleErr(err)
 }
 
@@ -101,7 +103,7 @@ func getFreePort(pool networking.SocketPool) func(w http.ResponseWriter, r *http
 
 			// Making response
 			if err != nil {
-				log.Fatal("can not a free port in server, ", err)
+				log.Println("can not get a free port in server, ", err)
 				res = networking.PortPayload{
 					Status: http.StatusServiceUnavailable,
 					Data: networking.PortData{

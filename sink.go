@@ -123,11 +123,13 @@ func main() {
 
 func getFreePort() {
 	var res = &(networking.PortPayload{})
+	conf := config.GetInstance()
 	// remoteAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", config.GetInstance().DevPort) + "/socketPort"
-	remoteAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", 8181) + config.GetInstance().FreeSocketPattern
+	remoteAddr := conf.DevServer + fmt.Sprintf(":%d", conf.DevPort) + conf.FreeSocketPattern
+	// Get available port for socket connection from server
 	networking.GetJSON(remoteAddr, res)
 
 	// start accepting files
-	socketAddr := fmt.Sprintf("localhost:%d", res.Data.Port)
+	socketAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", res.Data.Port)
 	sync.ConnectSocket(socketAddr)
 }
