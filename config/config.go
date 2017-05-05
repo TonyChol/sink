@@ -1,9 +1,8 @@
 package config
 
 import (
-	"log"
-
 	"errors"
+	"log"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -17,6 +16,8 @@ type Config struct {
 	ServerFilesLocation string
 	FileDbJSONPath      string
 	SyncRoot            string
+	BufferSize          int64
+	FreeSocketPattern   string
 }
 
 var instance *Config
@@ -28,6 +29,7 @@ func GetInstance() *Config {
 		validConfig, err := loadConfig()
 		if err != nil {
 			log.Fatal("Config not initialized")
+			panic(err)
 		} else {
 			instance = &validConfig
 		}
@@ -51,11 +53,15 @@ func loadConfig() (Config, error) {
 	ServerFilesLocation := viper.GetString("development.ServerFilesLocation")
 	FileDbJSONPath := viper.GetString("development.FileDbJsonPath")
 	SyncRoot := viper.GetString("development.SyncRoot")
+	BufferSize := viper.GetInt64("development.BufferSize")
+	FreeSocketPattern := viper.GetString("development.FreeSocketPattern")
 	return Config{devServer,
 		devPort,
 		devUploadURLPattern,
 		ServerFilesLocation,
 		FileDbJSONPath,
 		SyncRoot,
+		BufferSize,
+		FreeSocketPattern,
 	}, nil
 }

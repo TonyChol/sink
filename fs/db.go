@@ -17,8 +17,8 @@ import (
 const dbJSONFileDir string = "./"
 const dbJSONFileName string = "filedb.json"
 
-// FileDBElement : The element of the db that describes the information
-// of the synching directory
+// FileDBElement is the element of the db that
+// describes the information of the synching directory
 type FileDBElement struct {
 	FileType   string
 	Mode       os.FileMode
@@ -26,7 +26,7 @@ type FileDBElement struct {
 	LastModify time.Time
 }
 
-// FileDB : The map that represents the information of each file among the whole directory
+// FileDB is a map represents the information of each file among the whole directory
 // key : each file's path string
 // val : The FileDBElement struct that holds information
 type FileDB map[string]FileDBElement
