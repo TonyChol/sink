@@ -16,6 +16,7 @@ type Config struct {
 	ServerFilesLocation string
 	FileDbJSONPath      string
 	SyncRoot            string
+	BufferSize          int64
 }
 
 var instance *Config
@@ -51,11 +52,13 @@ func loadConfig() (Config, error) {
 	ServerFilesLocation := viper.GetString("development.ServerFilesLocation")
 	FileDbJSONPath := viper.GetString("development.FileDbJsonPath")
 	SyncRoot := viper.GetString("development.SyncRoot")
+	BufferSize := viper.GetInt64("BufferSize")
 	return Config{devServer,
 		devPort,
 		devUploadURLPattern,
 		ServerFilesLocation,
 		FileDbJSONPath,
 		SyncRoot,
+		BufferSize,
 	}, nil
 }
