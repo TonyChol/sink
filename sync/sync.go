@@ -140,18 +140,34 @@ func getRemoteFileInfo(connection net.Conn, targetFullDir string) {
 		json.NewDecoder(connection).Decode(&fileinfo)
 
 		log.Println("Get file info from server", fileinfo.FileRelPath, fileinfo.FileName)
-		go getFile(fileinfo.FileRelPath, fileinfo.FileName)
+		go getFile(fileinfo.FileRelPath, fileinfo.FileName, targetFullDir)
 	}
 }
 
-func getFile(relPath, filename string) {
-	// import ("net/http"; "io"; "os")
-	// ...
-	// out, err := os.Create("output.txt")
-	// defer out.Close()
-	// ...
-	// resp, err := http.Get("http://example.com/")
-	// defer resp.Body.Close()
-	// ...
-	// n, err := io.Copy(out, resp.Body)
+func getFile(relPath, filename, targetFullDir string) {
+	serverAddr := "http://" + config.GetInstance().DevServer + fmt.Sprintf(":%d", config.GetInstance().DevPort)
+	endpoint := serverAddr + "/" + relPath + "/" + filename
+
+	err := os.MkdirAll(targetFullDir+string(os.PathSeparator)+relPath, 0777)
+	if err != nil {
+		log.Fatalf("can not create folder '%v' for incoming file\n", relPath)
+	}
+
+	fileFullPath := targetFullDir + string(os.PathSeparator) + relPath + string(os.PathSeparator) + filename
+	out, err := os.Create(fileFullPath)
+	if err != nil {
+		log.Fatalf("can not create file %v\n", fileFullPath)
+	}
+	defer out.Close()
+
+	resp, err := http.Get(endpoint)
+	if err != nil {
+		log.Fatalf("can not get file from endpoint %v\n", endpoint)
+	}
+	defer resp.Body.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		log.Fatalln("can not download file from %v", endpoint)
+	}
 }
