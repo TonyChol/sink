@@ -1,13 +1,15 @@
 package networking
 
 import (
+	"encoding/gob"
 	"fmt"
+	"log"
 	"net"
 	"os"
 )
 
 // SocketPool saves the references pointing to all the connecting connection instances
-type SocketPool map[net.Conn]bool
+type SocketPool map[string]net.Conn
 
 // ServeWithSocket lets the server start a new port that serves one client's connection
 func ServeWithSocket(newport int, pool *SocketPool) {
@@ -15,26 +17,38 @@ func ServeWithSocket(newport int, pool *SocketPool) {
 	server, err := net.Listen("tcp", addrWithPort)
 	defer server.Close()
 	if err != nil {
-		fmt.Printf("Error setting up socket with port: %v: %v", addrWithPort, err)
+		fmt.Printf("ServeWithSocket: Error setting up socket with port: %v: %v", addrWithPort, err)
 		os.Exit(1)
 	}
 
-	fmt.Println("Socket server started! Waiting for connections...")
+	fmt.Println("ServeWithSocket: Socket server started! Waiting for connections...")
 	for {
 		// Wait for a connection.
 		connection, err := server.Accept()
-		defer func() {
-			delete(*pool, connection)
-			connection.Close()
-		}()
 		if err != nil {
-			fmt.Println("Accept socket request from client error: ", err)
+			log.Println("ServeWithSocket: Accept socket request from client error: ", err)
 			os.Exit(1)
 		}
 
-		// Put the connection inside the pool
-		(*pool)[connection] = true
+		// receive the message
+		var deviceID string
+		err = gob.NewDecoder(connection).Decode(&deviceID)
+		if err != nil {
+			log.Fatalln("Can not get device id from the client via socket")
+		}
 
-		fmt.Printf("Client %v connected", connection.RemoteAddr())
+		// Put the connection inside the pool
+		(*pool)[deviceID] = connection
+
+		defer func() {
+			delete(*pool, deviceID)
+			connection.Close()
+		}()
+
+		for id, conn := range *pool {
+			log.Printf("Connection %v: %v --> %v", id, conn.RemoteAddr().String(), conn.LocalAddr().String())
+		}
+
+		fmt.Printf("ServeWithSocket: Client %v connected from %v\n", deviceID, connection.RemoteAddr())
 	}
 }

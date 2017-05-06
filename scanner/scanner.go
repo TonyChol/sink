@@ -11,7 +11,7 @@ import (
 
 // UpdateFileDB : A filepath.WalkFunc function that updates the db
 // whenever it meets a file in the synching directory
-func updateFileDB(fileDB *fs.FileDB) filepath.WalkFunc {
+func updateFileDB(fileDB *fs.FileDB, deviceID string) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		// 1. [x] get file type
 		// 2. [x] get file mode
@@ -37,8 +37,11 @@ func updateFileDB(fileDB *fs.FileDB) filepath.WalkFunc {
 		_, exist := (*fileDB)[path]
 		// if is the file and the path does not exist in db
 		if info.IsDir() == false && exist == false {
-			log.Println("should send the file", path, "to server!")
-			syncing.SendFile(path)
+			log.Println("client should send the file", path, "to server!")
+			err := syncing.SendFile(path, deviceID)
+			if err != nil {
+				log.Printf("Can not send file %v: %v", path, err)
+			}
 		}
 
 		(*fileDB)[path] = fileDBEle
@@ -49,8 +52,8 @@ func updateFileDB(fileDB *fs.FileDB) filepath.WalkFunc {
 
 // ScanDir : Scan the whole directory to update the file database
 // and store some information
-func ScanDir(dirPath string) *fs.FileDB {
+func ScanDir(dirPath string, deviceID string) *fs.FileDB {
 	filedb := fs.GetFileDBInstance()
-	filepath.Walk(dirPath, updateFileDB(filedb))
+	filepath.Walk(dirPath, updateFileDB(filedb, deviceID))
 	return filedb
 }

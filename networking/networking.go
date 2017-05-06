@@ -17,6 +17,13 @@ type PortPayload struct {
 	Data   PortData
 }
 
+// FileInfoPayload is the container when the server
+// sends file information back to the client using socket
+type FileInfoPayload struct {
+	FileRelPath string
+	FileName    string
+}
+
 var myClient = &http.Client{Timeout: 10 * time.Second}
 
 // GetJSON lets the client to return a JSON struct by Http GET request

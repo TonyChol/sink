@@ -24,11 +24,17 @@ const baseDir = "." + string(filepath.Separator) + "sync" + string(filepath.Sepa
 
 func main() {
 	pool := make(networking.SocketPool)
-	http.HandleFunc("/upload", upload)
+	err := createBaseDir()
+	if err != nil {
+		log.Println("can not create baseDir: ", err)
+	}
+
+	http.HandleFunc("/upload", upload(pool))
 	http.HandleFunc("/socketPort", getFreePort(pool))
+	http.Handle("/", http.FileServer(http.Dir("sync")))
 	sevrAddr := fmt.Sprintf(":%d", config.GetInstance().DevPort)
-	log.Printf("Server has been set up at :%v\n", sevrAddr)
-	err := http.ListenAndServe(sevrAddr, nil) // set listen port
+	log.Printf("Server has been set up at :%v\n ", sevrAddr)
+	err = http.ListenAndServe(sevrAddr, nil) // set listen port
 	util.HardHandleErr(err)
 }
 
@@ -50,42 +56,49 @@ func handleClient(conn net.Conn) {
 }
 
 // upload logic
-func upload(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		log.Println("method:", r.Method)
-		crutime := time.Now().Unix()
-		h := md5.New()
-		io.WriteString(h, strconv.FormatInt(crutime, 10))
-		token := fmt.Sprintf("%x", h.Sum(nil))
+func upload(pool networking.SocketPool) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			log.Println("method:", r.Method)
+			crutime := time.Now().Unix()
+			h := md5.New()
+			io.WriteString(h, strconv.FormatInt(crutime, 10))
+			token := fmt.Sprintf("%x", h.Sum(nil))
 
-		t, _ := template.ParseFiles("upload.gtpl")
-		t.Execute(w, token)
-	} else if r.Method == "POST" {
-		relativePath := r.FormValue("relativePath")
-		filename := r.FormValue("filename")
+			t, _ := template.ParseFiles("upload.gtpl")
+			t.Execute(w, token)
+		} else if r.Method == "POST" {
+			log.Println("Getting post request from ", r.RemoteAddr)
+			relativePath := r.FormValue("relativePath")
+			filename := r.FormValue("filename")
+			deviceID := r.FormValue("deviceID")
 
-		r.ParseMultipartForm(32 << 20)
-		file, handler, err := r.FormFile("uploadfile")
-		defer file.Close()
-		if err != nil {
-			fmt.Println(err)
-			return
+			r.ParseMultipartForm(32 << 20)
+			file, handler, err := r.FormFile("uploadfile")
+			defer file.Close()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Fprintf(w, "%v", handler.Header)
+
+			// Try to create the directory to hold the target incoming file if not exist
+			err = createDirIfNotExist(relativePath)
+			util.HardHandleErr(err)
+
+			targetFilePath := baseDir + relativePath + string(filepath.Separator) + filename
+			f, err := os.OpenFile(targetFilePath, os.O_WRONLY|os.O_CREATE, 0666)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			log.Println("Method:", r.Method, ", file", filename, "has been received from client")
+			defer f.Close()
+			io.Copy(f, file)
+
+			// start to broadcast the file
+			broadcastFile(deviceID, pool, relativePath, filename)
 		}
-		fmt.Fprintf(w, "%v", handler.Header)
-
-		// Try to create the directory to hold the target incoming file if not exist
-		err = createDirIfNotExist(relativePath)
-		util.HardHandleErr(err)
-
-		targetFilePath := baseDir + relativePath + string(filepath.Separator) + filename
-		f, err := os.OpenFile(targetFilePath, os.O_WRONLY|os.O_CREATE, 0666)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		log.Println("Method:", r.Method, ", file", filename, "has been received from client")
-		defer f.Close()
-		io.Copy(f, file)
 	}
 }
 
@@ -134,6 +147,33 @@ func getFreePort(pool networking.SocketPool) func(w http.ResponseWriter, r *http
 	}
 }
 
+func createBaseDir() error {
+	return os.MkdirAll(baseDir, 0777)
+}
+
 func createDirIfNotExist(targetDir string) error {
 	return os.MkdirAll(baseDir+targetDir, 0777)
+}
+
+func broadcastFile(deviceID string, pool networking.SocketPool, relativePath string, fname string) {
+	for id, conn := range pool {
+		if id != deviceID {
+			sendFileInfoTo(conn, relativePath, fname)
+		}
+	}
+}
+
+func sendFileInfoTo(connection net.Conn, relPath string, filename string) error {
+
+	payload := networking.FileInfoPayload{
+		FileRelPath: relPath,
+		FileName:    filename,
+	}
+
+	err := json.NewEncoder(connection).Encode(payload)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

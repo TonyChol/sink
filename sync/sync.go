@@ -2,6 +2,8 @@ package sync
 
 import (
 	"bytes"
+	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,41 +13,42 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 
 	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/fs"
+	"github.com/tonychol/sink/networking"
 	"github.com/tonychol/sink/util"
 )
 
 // SendFile : Public api that accept a file name(path) and send it to the server
-func SendFile(filename string) error {
+func SendFile(filename string, deviceID string) error {
 	targetURL := getTargetURLFromConfig()
-	return postFile(filename, targetURL)
+	return postFileToServer(filename, targetURL, deviceID)
 }
 
 // getTargetURLFromConfig : get the target url by parsing the config file
 func getTargetURLFromConfig() string {
 	conf := config.GetInstance()
-	targetURL := conf.DevServer + fmt.Sprintf(":%d", conf.DevPort) + conf.DevUploadURLPattern
+	targetURL := "http://" + conf.DevServer + fmt.Sprintf(":%d", conf.DevPort) + conf.DevUploadURLPattern
 	return targetURL
 }
 
-// postFile : Accepts a filename which is a relative path
-// and its targetUrl of the server, posts the file to the server
-func postFile(filename string, targetURL string) error {
+// postFileToServer accepts a filename which is a relative path
+// and its targetUrl of the server, posts the file to the server,
+// finally it attaches the deviceID so that the server could
+// distinguish the client
+func postFileToServer(filename string, targetURL string, deviceID string) error {
 	bodyBuf := &bytes.Buffer{}
 	bodyWriter := multipart.NewWriter(bodyBuf)
 
 	relativePath, err := fs.GetRelativeDirFromRoot(filename)
 	util.HardHandleErr(err)
 	fileFullName := fs.GetFileNameFromFilePath(filename)
-	log.Println("relative path =", relativePath)
-	log.Println("file full name =", fileFullName)
+	log.Printf("post file to server, relative path: %v, name: %v", relativePath, fileFullName)
 	// this step is very important
 	bodyWriter.WriteField("relativePath", relativePath)
 	bodyWriter.WriteField("filename", fileFullName)
+	bodyWriter.WriteField("deviceID", deviceID)
 	fileWriter, err := bodyWriter.CreateFormFile("uploadfile", filename)
 
 	if err != nil {
@@ -110,47 +113,61 @@ func GetAvailablePort() (int, error) {
 }
 
 // ConnectSocket enables client to connect
-func ConnectSocket(remoteAddr string) {
-	log.Println("new connection: ", remoteAddr)
+func ConnectSocket(remoteAddr string, targetDir string, deviceID string) {
+	log.Println("ConnectSocket: new connection: ", remoteAddr)
+
 	connection, err := net.Dial("tcp", remoteAddr)
 	if err != nil {
 		panic(err)
 	}
 	defer connection.Close()
-	fmt.Println("Connected to server, start receiving the file name and file size")
 
-	accpetFilesFrom(connection)
+	// send device id to server
+	err = gob.NewEncoder(connection).Encode(deviceID)
+	if err != nil {
+		log.Println("can not send devide id to server", err)
+	}
+
+	fmt.Println("Client connected to server, start receiving the file name and its relative path")
+
+	getRemoteFileInfo(connection, targetDir)
 }
 
-func accpetFilesFrom(connection net.Conn) {
-	bufferSize := config.GetInstance().BufferSize
+func getRemoteFileInfo(connection net.Conn, targetFullDir string) {
 	for {
-		bufferFileName := make([]byte, 64)
-		bufferFileSize := make([]byte, 10)
+		var fileinfo networking.FileInfoPayload
+		// Get available port for socket connection from server
+		json.NewDecoder(connection).Decode(&fileinfo)
 
-		connection.Read(bufferFileSize)
-		fileSize, _ := strconv.ParseInt(strings.Trim(string(bufferFileSize), ":"), 10, 64)
+		log.Println("Get file info from server", fileinfo.FileRelPath, fileinfo.FileName)
+		go getFile(fileinfo.FileRelPath, fileinfo.FileName, targetFullDir)
+	}
+}
 
-		connection.Read(bufferFileName)
-		fileName := strings.Trim(string(bufferFileName), ":")
+func getFile(relPath, filename, targetFullDir string) {
+	serverAddr := "http://" + config.GetInstance().DevServer + fmt.Sprintf(":%d", config.GetInstance().DevPort)
+	endpoint := serverAddr + "/" + relPath + "/" + filename
 
-		newFile, err := os.Create(fileName)
+	err := os.MkdirAll(targetFullDir+string(os.PathSeparator)+relPath, 0777)
+	if err != nil {
+		log.Fatalf("can not create folder '%v' for incoming file\n", relPath)
+	}
 
-		if err != nil {
-			panic(err)
-		}
-		defer newFile.Close()
-		var receivedBytes int64
+	fileFullPath := targetFullDir + string(os.PathSeparator) + relPath + string(os.PathSeparator) + filename
+	out, err := os.Create(fileFullPath)
+	if err != nil {
+		log.Fatalf("can not create file %v\n", fileFullPath)
+	}
+	defer out.Close()
 
-		for {
-			if (fileSize - receivedBytes) < bufferSize {
-				io.CopyN(newFile, connection, (fileSize - receivedBytes))
-				connection.Read(make([]byte, (receivedBytes+bufferSize)-fileSize))
-				break
-			}
-			io.CopyN(newFile, connection, bufferSize)
-			receivedBytes += bufferSize
-		}
-		fmt.Printf("\n Received file %v", fileName)
+	resp, err := http.Get(endpoint)
+	if err != nil {
+		log.Fatalf("can not get file from endpoint %v\n", endpoint)
+	}
+	defer resp.Body.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		log.Fatalln("can not download file from %v", endpoint)
 	}
 }
