@@ -71,6 +71,7 @@ func upload(pool networking.SocketPool) func(w http.ResponseWriter, r *http.Requ
 			log.Println("Getting post request from ", r.RemoteAddr)
 			relativePath := r.FormValue("relativePath")
 			filename := r.FormValue("filename")
+			deviceID := r.FormValue("deviceID")
 
 			r.ParseMultipartForm(32 << 20)
 			file, handler, err := r.FormFile("uploadfile")
@@ -96,7 +97,7 @@ func upload(pool networking.SocketPool) func(w http.ResponseWriter, r *http.Requ
 			io.Copy(f, file)
 
 			// start to broadcast the file
-			broadcastFile(r.RemoteAddr, pool, relativePath, filename)
+			broadcastFile(deviceID, pool, relativePath, filename)
 		}
 	}
 }
@@ -154,55 +155,25 @@ func createDirIfNotExist(targetDir string) error {
 	return os.MkdirAll(baseDir+targetDir, 0777)
 }
 
-func sendFileToClient(connection net.Conn, relativePath string, fname string) {
-	file, err := os.Open(baseDir + relativePath + string(filepath.Separator) + fname)
-	if err != nil {
-		log.Fatal("sendFileToClient: can not open file", fname)
-		return
-	}
-	fileInfo, err := file.Stat()
-	if err != nil {
-		log.Fatal("sendFileToClient: can not get file info of", fname)
-		return
-	}
-	fileSize := fillString(strconv.FormatInt(fileInfo.Size(), 10), 10)
-	fileName := fillString(fileInfo.Name(), 64)
-	fileRelPath := fillString(relativePath, 64)
-	fmt.Println("sendFileToClient: Sending filename, filesize and relative path of", fname)
-	connection.Write([]byte(fileSize))
-	connection.Write([]byte(fileName))
-	connection.Write([]byte(fileRelPath))
-	sendBuffer := make([]byte, config.GetInstance().BufferSize)
-	fmt.Println("sendFileToClient: Start sending binary of file", fname)
-	for {
-		_, err = file.Read(sendBuffer)
-		if err == io.EOF {
-			break
+func broadcastFile(deviceID string, pool networking.SocketPool, relativePath string, fname string) {
+	for id, conn := range pool {
+		if id != deviceID {
+			sendFileInfoTo(conn, relativePath, fname)
 		}
-		connection.Write(sendBuffer)
 	}
-	fmt.Println("sendFileToClient: File has been sent, closing connection!")
-	return
 }
 
-func fillString(returnString string, toLength int) string {
-	for {
-		strSize := len(returnString)
-		if strSize < toLength {
-			returnString = returnString + ":"
-			continue
-		}
-		break
-	}
-	return returnString
-}
+func sendFileInfoTo(connection net.Conn, relPath string, filename string) error {
 
-func broadcastFile(sourceAddr string, pool networking.SocketPool, relativePath string, fname string) {
-	for conn := range pool {
-		log.Println("broadcastFileExcept: source addr = ", sourceAddr)
-		log.Println("broadcastFileExcept: connection's remote = ", conn.RemoteAddr().String())
-		if sourceAddr != conn.RemoteAddr().String() {
-			sendFileToClient(conn, relativePath, fname)
-		}
+	payload := networking.FileInfoPayload{
+		FileRelPath: relPath,
+		FileName:    filename,
 	}
+
+	err := json.NewEncoder(connection).Encode(payload)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
