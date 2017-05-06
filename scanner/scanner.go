@@ -37,8 +37,11 @@ func updateFileDB(fileDB *fs.FileDB) filepath.WalkFunc {
 		_, exist := (*fileDB)[path]
 		// if is the file and the path does not exist in db
 		if info.IsDir() == false && exist == false {
-			log.Println("should send the file", path, "to server!")
-			syncing.SendFile(path)
+			log.Println("client should send the file", path, "to server!")
+			err := syncing.SendFile(path)
+			if err != nil {
+				log.Printf("Can not send file %v: %v", path, err)
+			}
 		}
 
 		(*fileDB)[path] = fileDBEle
