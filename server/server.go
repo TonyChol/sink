@@ -25,10 +25,17 @@ const baseDir = "." + string(filepath.Separator) + "sync" + string(filepath.Sepa
 func main() {
 	pool := make(networking.SocketPool)
 	http.HandleFunc("/upload", upload)
+	err := createBaseDir()
+	if err != nil {
+		log.Println("can not create baseDir: ", err)
+	}
+
+	http.HandleFunc("/upload", upload(pool))
 	http.HandleFunc("/socketPort", getFreePort(pool))
+	http.Handle("/", http.FileServer(http.Dir("sync")))
 	sevrAddr := fmt.Sprintf(":%d", config.GetInstance().DevPort)
-	log.Printf("Server has been set up at :%v\n", sevrAddr)
-	err := http.ListenAndServe(sevrAddr, nil) // set listen port
+	log.Printf("Server has been set up at :%v\n ", sevrAddr)
+	err = http.ListenAndServe(sevrAddr, nil) // set listen port
 	util.HardHandleErr(err)
 }
 
