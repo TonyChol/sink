@@ -28,7 +28,7 @@ func SendFile(filename string) error {
 // getTargetURLFromConfig : get the target url by parsing the config file
 func getTargetURLFromConfig() string {
 	conf := config.GetInstance()
-	targetURL := conf.DevServer + fmt.Sprintf(":%d", conf.DevPort) + conf.DevUploadURLPattern
+	targetURL := "http://" + conf.DevServer + fmt.Sprintf(":%d", conf.DevPort) + conf.DevUploadURLPattern
 	return targetURL
 }
 
@@ -110,23 +110,24 @@ func GetAvailablePort() (int, error) {
 }
 
 // ConnectSocket enables client to connect
-func ConnectSocket(remoteAddr string) {
-	log.Println("new connection: ", remoteAddr)
+func ConnectSocket(remoteAddr string, targetDir string) {
+	log.Println("ConnectSocket: new connection: ", remoteAddr)
 	connection, err := net.Dial("tcp", remoteAddr)
 	if err != nil {
 		panic(err)
 	}
 	defer connection.Close()
-	fmt.Println("Connected to server, start receiving the file name and file size")
+	fmt.Println("ConnectSocket: Connected to server, start receiving the file name and file size")
 
-	accpetFilesFrom(connection)
+	accpetFilesFrom(connection, targetDir)
 }
 
-func accpetFilesFrom(connection net.Conn) {
+func accpetFilesFrom(connection net.Conn, targetFullDir string) {
 	bufferSize := config.GetInstance().BufferSize
 	for {
 		bufferFileName := make([]byte, 64)
 		bufferFileSize := make([]byte, 10)
+		bufferFileRelPath := make([]byte, 64)
 
 		connection.Read(bufferFileSize)
 		fileSize, _ := strconv.ParseInt(strings.Trim(string(bufferFileSize), ":"), 10, 64)
@@ -134,6 +135,20 @@ func accpetFilesFrom(connection net.Conn) {
 		connection.Read(bufferFileName)
 		fileName := strings.Trim(string(bufferFileName), ":")
 
+		connection.Read(bufferFileRelPath)
+		fileRelPath := strings.Trim(string(bufferFileRelPath), ":")
+
+		log.Println("ConnectSocket: Relative path = ", fileRelPath)
+		log.Println("ConnectSocket: File Name = ", fileName)
+
+		// create dir if not exist
+
+		if targetFullDir[len(targetFullDir)-1] != '/' {
+			targetFullDir += string(os.PathSeparator)
+		}
+
+		os.MkdirAll(targetFullDir+fileRelPath, 0777)
+		// create the file
 		newFile, err := os.Create(fileName)
 
 		if err != nil {

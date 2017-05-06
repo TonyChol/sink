@@ -47,6 +47,7 @@ func watchDir(done chan bool, dirs ...string) {
 
 				if ev.IsDelete() {
 					watcher.RemoveWatch(eventFile)
+					// TODO: let server delete the file
 				}
 
 				if ev.IsModify() {
@@ -109,7 +110,7 @@ func main() {
 	go watchDir(done, dirSlice...)
 	log.Println("Start setting up file watcher for each directory in ", targetDir)
 	// launch socket connection
-	go getFreePort()
+	go getFreePortAndConnect(targetDir)
 
 	// wait for exit signal
 	// reference: http://stackoverflow.com/questions/8403862/do-actions-on-end-of-execution
@@ -121,15 +122,15 @@ func main() {
 	os.Exit(0)
 }
 
-func getFreePort() {
+func getFreePortAndConnect(targetDir string) {
 	var res = &(networking.PortPayload{})
 	conf := config.GetInstance()
 	// remoteAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", config.GetInstance().DevPort) + "/socketPort"
-	remoteAddr := conf.DevServer + fmt.Sprintf(":%d", conf.DevPort) + conf.FreeSocketPattern
+	remoteAddr := "http://" + conf.DevServer + fmt.Sprintf(":%d", conf.DevPort) + conf.FreeSocketPattern
 	// Get available port for socket connection from server
 	networking.GetJSON(remoteAddr, res)
 
 	// start accepting files
 	socketAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", res.Data.Port)
-	sync.ConnectSocket(socketAddr)
+	sync.ConnectSocket(socketAddr, targetDir)
 }

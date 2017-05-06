@@ -24,7 +24,6 @@ const baseDir = "." + string(filepath.Separator) + "sync" + string(filepath.Sepa
 
 func main() {
 	pool := make(networking.SocketPool)
-	http.HandleFunc("/upload", upload)
 	err := createBaseDir()
 	if err != nil {
 		log.Println("can not create baseDir: ", err)
@@ -57,42 +56,48 @@ func handleClient(conn net.Conn) {
 }
 
 // upload logic
-func upload(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		log.Println("method:", r.Method)
-		crutime := time.Now().Unix()
-		h := md5.New()
-		io.WriteString(h, strconv.FormatInt(crutime, 10))
-		token := fmt.Sprintf("%x", h.Sum(nil))
+func upload(pool networking.SocketPool) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			log.Println("method:", r.Method)
+			crutime := time.Now().Unix()
+			h := md5.New()
+			io.WriteString(h, strconv.FormatInt(crutime, 10))
+			token := fmt.Sprintf("%x", h.Sum(nil))
 
-		t, _ := template.ParseFiles("upload.gtpl")
-		t.Execute(w, token)
-	} else if r.Method == "POST" {
-		relativePath := r.FormValue("relativePath")
-		filename := r.FormValue("filename")
+			t, _ := template.ParseFiles("upload.gtpl")
+			t.Execute(w, token)
+		} else if r.Method == "POST" {
+			log.Println("Getting post request from ", r.RemoteAddr)
+			relativePath := r.FormValue("relativePath")
+			filename := r.FormValue("filename")
 
-		r.ParseMultipartForm(32 << 20)
-		file, handler, err := r.FormFile("uploadfile")
-		defer file.Close()
-		if err != nil {
-			fmt.Println(err)
-			return
+			r.ParseMultipartForm(32 << 20)
+			file, handler, err := r.FormFile("uploadfile")
+			defer file.Close()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Fprintf(w, "%v", handler.Header)
+
+			// Try to create the directory to hold the target incoming file if not exist
+			err = createDirIfNotExist(relativePath)
+			util.HardHandleErr(err)
+
+			targetFilePath := baseDir + relativePath + string(filepath.Separator) + filename
+			f, err := os.OpenFile(targetFilePath, os.O_WRONLY|os.O_CREATE, 0666)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			log.Println("Method:", r.Method, ", file", filename, "has been received from client")
+			defer f.Close()
+			io.Copy(f, file)
+
+			// start to broadcast the file
+			broadcastFile(r.RemoteAddr, pool, relativePath, filename)
 		}
-		fmt.Fprintf(w, "%v", handler.Header)
-
-		// Try to create the directory to hold the target incoming file if not exist
-		err = createDirIfNotExist(relativePath)
-		util.HardHandleErr(err)
-
-		targetFilePath := baseDir + relativePath + string(filepath.Separator) + filename
-		f, err := os.OpenFile(targetFilePath, os.O_WRONLY|os.O_CREATE, 0666)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		log.Println("Method:", r.Method, ", file", filename, "has been received from client")
-		defer f.Close()
-		io.Copy(f, file)
 	}
 }
 
@@ -141,6 +146,63 @@ func getFreePort(pool networking.SocketPool) func(w http.ResponseWriter, r *http
 	}
 }
 
+func createBaseDir() error {
+	return os.MkdirAll(baseDir, 0777)
+}
+
 func createDirIfNotExist(targetDir string) error {
 	return os.MkdirAll(baseDir+targetDir, 0777)
+}
+
+func sendFileToClient(connection net.Conn, relativePath string, fname string) {
+	file, err := os.Open(baseDir + relativePath + string(filepath.Separator) + fname)
+	if err != nil {
+		log.Fatal("sendFileToClient: can not open file", fname)
+		return
+	}
+	fileInfo, err := file.Stat()
+	if err != nil {
+		log.Fatal("sendFileToClient: can not get file info of", fname)
+		return
+	}
+	fileSize := fillString(strconv.FormatInt(fileInfo.Size(), 10), 10)
+	fileName := fillString(fileInfo.Name(), 64)
+	fileRelPath := fillString(relativePath, 64)
+	fmt.Println("sendFileToClient: Sending filename, filesize and relative path of", fname)
+	connection.Write([]byte(fileSize))
+	connection.Write([]byte(fileName))
+	connection.Write([]byte(fileRelPath))
+	sendBuffer := make([]byte, config.GetInstance().BufferSize)
+	fmt.Println("sendFileToClient: Start sending binary of file", fname)
+	for {
+		_, err = file.Read(sendBuffer)
+		if err == io.EOF {
+			break
+		}
+		connection.Write(sendBuffer)
+	}
+	fmt.Println("sendFileToClient: File has been sent, closing connection!")
+	return
+}
+
+func fillString(returnString string, toLength int) string {
+	for {
+		strSize := len(returnString)
+		if strSize < toLength {
+			returnString = returnString + ":"
+			continue
+		}
+		break
+	}
+	return returnString
+}
+
+func broadcastFile(sourceAddr string, pool networking.SocketPool, relativePath string, fname string) {
+	for conn := range pool {
+		log.Println("broadcastFileExcept: source addr = ", sourceAddr)
+		log.Println("broadcastFileExcept: connection's remote = ", conn.RemoteAddr().String())
+		if sourceAddr != conn.RemoteAddr().String() {
+			sendFileToClient(conn, relativePath, fname)
+		}
+	}
 }

@@ -2,6 +2,7 @@ package networking
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 )
@@ -15,11 +16,11 @@ func ServeWithSocket(newport int, pool *SocketPool) {
 	server, err := net.Listen("tcp", addrWithPort)
 	defer server.Close()
 	if err != nil {
-		fmt.Printf("Error setting up socket with port: %v: %v", addrWithPort, err)
+		fmt.Printf("ServeWithSocket: Error setting up socket with port: %v: %v", addrWithPort, err)
 		os.Exit(1)
 	}
 
-	fmt.Println("Socket server started! Waiting for connections...")
+	fmt.Println("ServeWithSocket: Socket server started! Waiting for connections...")
 	for {
 		// Wait for a connection.
 		connection, err := server.Accept()
@@ -28,13 +29,17 @@ func ServeWithSocket(newport int, pool *SocketPool) {
 			connection.Close()
 		}()
 		if err != nil {
-			fmt.Println("Accept socket request from client error: ", err)
+			fmt.Println("ServeWithSocket: Accept socket request from client error: ", err)
 			os.Exit(1)
 		}
 
 		// Put the connection inside the pool
 		(*pool)[connection] = true
 
-		fmt.Printf("Client %v connected", connection.RemoteAddr())
+		for conn := range *pool {
+			log.Printf("ServeWithSocket: %v --> %v", conn.RemoteAddr().String(), conn.LocalAddr().String())
+		}
+
+		fmt.Printf("ServeWithSocket: Client %v connected\n", connection.RemoteAddr())
 	}
 }
