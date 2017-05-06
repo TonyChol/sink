@@ -3,6 +3,7 @@ package scanner
 import (
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/tonychol/sink/fs"
@@ -11,8 +12,8 @@ import (
 
 // UpdateFileDB : A filepath.WalkFunc function that updates the db
 // whenever it meets a file in the synching directory
-func updateFileDB(fileDB *fs.FileDB, deviceID string) filepath.WalkFunc {
-	return func(path string, info os.FileInfo, err error) error {
+func updateFileDB(fileDB *fs.FileDB, deviceID string, baseDir string) filepath.WalkFunc {
+	return func(fpath string, info os.FileInfo, err error) error {
 		// 1. [x] get file type
 		// 2. [x] get file mode
 		// 3. [x] get checksum of the file if it is not directory
@@ -21,7 +22,7 @@ func updateFileDB(fileDB *fs.FileDB, deviceID string) filepath.WalkFunc {
 		if info.IsDir() {
 			checkSum = ""
 		} else {
-			checkSum, err = fs.GetCheckSumOfFile(path)
+			checkSum, err = fs.GetCheckSumOfFile(fpath)
 			if err != nil {
 				log.Fatal("Checksum error", err)
 				return err
@@ -34,17 +35,23 @@ func updateFileDB(fileDB *fs.FileDB, deviceID string) filepath.WalkFunc {
 		fileDBEle.CheckSum = checkSum
 		fileDBEle.LastModify = info.ModTime()
 
-		_, exist := (*fileDB)[path]
+		_, exist := (*fileDB)[fpath]
 		// if is the file and the path does not exist in db
 		if info.IsDir() == false && exist == false {
-			log.Println("client should send the file", path, "to server!")
-			err := syncing.SendFile(path, deviceID)
+			log.Println("client should send the file", fpath, "to server!")
+
+			relativePath, err := filepath.Rel(baseDir, path.Dir(fpath))
 			if err != nil {
-				log.Printf("Can not send file %v: %v", path, err)
+				log.Fatalln("can not get relative path of the file", fpath)
+			}
+
+			err = syncing.SendFile(fpath, relativePath, deviceID)
+			if err != nil {
+				log.Printf("Can not send file %v: %v", fpath, err)
 			}
 		}
 
-		(*fileDB)[path] = fileDBEle
+		(*fileDB)[fpath] = fileDBEle
 
 		return nil
 	}
@@ -54,6 +61,6 @@ func updateFileDB(fileDB *fs.FileDB, deviceID string) filepath.WalkFunc {
 // and store some information
 func ScanDir(dirPath string, deviceID string) *fs.FileDB {
 	filedb := fs.GetFileDBInstance()
-	filepath.Walk(dirPath, updateFileDB(filedb, deviceID))
+	filepath.Walk(dirPath, updateFileDB(filedb, deviceID, dirPath))
 	return filedb
 }

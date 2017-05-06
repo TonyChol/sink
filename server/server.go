@@ -148,11 +148,11 @@ func getFreePort(pool networking.SocketPool) func(w http.ResponseWriter, r *http
 }
 
 func createBaseDir() error {
-	return os.MkdirAll(baseDir, 0777)
+	return os.MkdirAll(baseDir, 0755)
 }
 
 func createDirIfNotExist(targetDir string) error {
-	return os.MkdirAll(baseDir+targetDir, 0777)
+	return os.MkdirAll(baseDir+targetDir, 0755)
 }
 
 func broadcastFile(deviceID string, pool networking.SocketPool, relativePath string, fname string) {

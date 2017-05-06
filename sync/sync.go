@@ -17,13 +17,12 @@ import (
 	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/fs"
 	"github.com/tonychol/sink/networking"
-	"github.com/tonychol/sink/util"
 )
 
 // SendFile : Public api that accept a file name(path) and send it to the server
-func SendFile(filename string, deviceID string) error {
+func SendFile(filename string, relativePath string, deviceID string) error {
 	targetURL := getTargetURLFromConfig()
-	return postFileToServer(filename, targetURL, deviceID)
+	return postFileToServer(filename, relativePath, targetURL, deviceID)
 }
 
 // getTargetURLFromConfig : get the target url by parsing the config file
@@ -37,12 +36,10 @@ func getTargetURLFromConfig() string {
 // and its targetUrl of the server, posts the file to the server,
 // finally it attaches the deviceID so that the server could
 // distinguish the client
-func postFileToServer(filename string, targetURL string, deviceID string) error {
+func postFileToServer(filename string, relativePath string, targetURL string, deviceID string) error {
 	bodyBuf := &bytes.Buffer{}
 	bodyWriter := multipart.NewWriter(bodyBuf)
 
-	relativePath, err := fs.GetRelativeDirFromRoot(filename)
-	util.HardHandleErr(err)
 	fileFullName := fs.GetFileNameFromFilePath(filename)
 	log.Printf("post file to server, relative path: %v, name: %v", relativePath, fileFullName)
 	// this step is very important
@@ -130,17 +127,17 @@ func ConnectSocket(remoteAddr string, targetDir string, deviceID string) {
 
 	fmt.Println("Client connected to server, start receiving the file name and its relative path")
 
-	getRemoteFileInfo(connection, targetDir)
+	waitRemoteFileInfo(connection, targetDir)
 }
 
-func getRemoteFileInfo(connection net.Conn, targetFullDir string) {
+func waitRemoteFileInfo(connection net.Conn, targetFullDir string) {
 	for {
 		var fileinfo networking.FileInfoPayload
 		// Get available port for socket connection from server
 		json.NewDecoder(connection).Decode(&fileinfo)
 
 		log.Println("Get file info from server", fileinfo.FileRelPath, fileinfo.FileName)
-		go getFile(fileinfo.FileRelPath, fileinfo.FileName, targetFullDir)
+		// go getFile(fileinfo.FileRelPath, fileinfo.FileName, targetFullDir)
 	}
 }
 
@@ -148,7 +145,7 @@ func getFile(relPath, filename, targetFullDir string) {
 	serverAddr := "http://" + config.GetInstance().DevServer + fmt.Sprintf(":%d", config.GetInstance().DevPort)
 	endpoint := serverAddr + "/" + relPath + "/" + filename
 
-	err := os.MkdirAll(targetFullDir+string(os.PathSeparator)+relPath, 0777)
+	err := os.MkdirAll(targetFullDir+string(os.PathSeparator)+relPath, 0755)
 	if err != nil {
 		log.Fatalf("can not create folder '%v' for incoming file\n", relPath)
 	}

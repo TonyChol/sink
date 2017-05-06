@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path"
+	"path/filepath"
 
 	"github.com/howeyc/fsnotify"
 	"github.com/tonychol/sink/config"
@@ -18,7 +20,7 @@ import (
 
 // watchDir : A goroutine to watch all the directories
 // and fires the specific file event
-func watchDir(done chan bool, deviceID string, dirs ...string) {
+func watchDir(done chan bool, deviceID string, baseDir string, dirs ...string) {
 	watcher, err := fsnotify.NewWatcher()
 	util.HandleErr(err)
 	defer watcher.Close()
@@ -59,7 +61,13 @@ func watchDir(done chan bool, deviceID string, dirs ...string) {
 
 				if ev.IsAttrib() {
 				}
-				err := sync.SendFile(eventFile, deviceID)
+
+				relativePath, err := filepath.Rel(baseDir, path.Dir(eventFile))
+				if err != nil {
+					log.Fatalln("can not get relative path of the file", eventFile)
+				}
+
+				err = sync.SendFile(eventFile, relativePath, deviceID)
 				if err != nil {
 					log.Printf("Can not send file %v: %v", eventFile, err)
 				}
@@ -120,7 +128,7 @@ func main() {
 
 	// start firing the file watcher
 	done := make(chan bool)
-	go watchDir(done, deviceID, dirSlice...)
+	go watchDir(done, deviceID, targetDir, dirSlice...)
 	log.Println("Start setting up file watcher for each directory in ", targetDir)
 	// launch socket connection
 	go getFreePortAndConnect(targetDir, deviceID)
