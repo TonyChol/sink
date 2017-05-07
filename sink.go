@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path"
+	"path/filepath"
 
 	"github.com/howeyc/fsnotify"
 	"github.com/tonychol/sink/config"
@@ -18,7 +20,7 @@ import (
 
 // watchDir : A goroutine to watch all the directories
 // and fires the specific file event
-func watchDir(done chan bool, deviceID string, dirs ...string) {
+func watchDir(done chan bool, deviceID string, baseDir string, dirs ...string) {
 	watcher, err := fsnotify.NewWatcher()
 	util.HandleErr(err)
 	defer watcher.Close()
@@ -43,12 +45,21 @@ func watchDir(done chan bool, deviceID string, dirs ...string) {
 							log.Fatal(err)
 							return
 						}
+
+					}
+
+					if fi.IsDir() == false {
+						_, exist := (*fs.GetFileDBInstance())[eventFile]
+						if exist == false {
+							fs.GetFileDBInstance().AddFileDir(eventFile)
+						}
 					}
 				}
 
 				if ev.IsDelete() {
 					watcher.RemoveWatch(eventFile)
 					// TODO: let server delete the file
+					// requestDel(eventFile)
 				}
 
 				if ev.IsModify() {
@@ -58,11 +69,37 @@ func watchDir(done chan bool, deviceID string, dirs ...string) {
 				}
 
 				if ev.IsAttrib() {
+					continue
 				}
-				err := sync.SendFile(eventFile, deviceID)
+
+				relativePath, err := filepath.Rel(baseDir, path.Dir(eventFile))
 				if err != nil {
-					log.Printf("Can not send file %v: %v", eventFile, err)
+					log.Fatalln("can not get relative path of the file", eventFile)
 				}
+
+				fileDb := fs.GetFileDBInstance()
+				_, exist := (*fileDb)[eventFile]
+
+				if exist == false {
+					log.Println("doesn't exist")
+					err = sync.SendFile(eventFile, relativePath, deviceID)
+					if err != nil {
+						log.Printf("Can not send file %v: %v", eventFile, err)
+					}
+				} else {
+					ele := (*fileDb)[eventFile]
+					if ele.Incoming == false {
+						log.Println("incoming is false", eventFile)
+						err = sync.SendFile(eventFile, relativePath, deviceID)
+						if err != nil {
+							log.Printf("Can not send file %v: %v", eventFile, err)
+						}
+					} else {
+						// set Incoming to false
+						fs.GetFileDBInstance().UnsetIncoming(eventFile)
+					}
+				}
+
 			case err := <-watcher.Error:
 				log.Println("error", err)
 				done <- true
@@ -120,7 +157,7 @@ func main() {
 
 	// start firing the file watcher
 	done := make(chan bool)
-	go watchDir(done, deviceID, dirSlice...)
+	go watchDir(done, deviceID, targetDir, dirSlice...)
 	log.Println("Start setting up file watcher for each directory in ", targetDir)
 	// launch socket connection
 	go getFreePortAndConnect(targetDir, deviceID)

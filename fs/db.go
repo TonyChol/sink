@@ -5,10 +5,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
-
-	"path/filepath"
 
 	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/util"
@@ -24,17 +23,24 @@ type FileDBElement struct {
 	Mode       os.FileMode
 	CheckSum   string
 	LastModify time.Time
+	Incoming   bool
+}
+
+// NewFileDBEle returns the new FileDBElement reference
+// with some default values
+func NewFileDBEle() *FileDBElement {
+	return &FileDBElement{Incoming: false}
 }
 
 // FileDB is a map represents the information of each file among the whole directory
 // key : each file's path string
 // val : The FileDBElement struct that holds information
-type FileDB map[string]FileDBElement
+type FileDB map[string]*FileDBElement
 
 var instance *FileDB
 var once sync.Once
 
-// GetFileDBInstance : Using singleton to get the global filedb instance
+// GetFileDBInstance gets the global filedb instance
 func GetFileDBInstance() *FileDB {
 	once.Do(func() {
 		validConfig := restoreDBFromJSONFile()
@@ -43,19 +49,19 @@ func GetFileDBInstance() *FileDB {
 	return instance
 }
 
-// JSONStr : Convert the db map into the json string
+// JSONStr converts the db map into the json string.
 func (db *FileDB) JSONStr() string {
 	res, err := json.Marshal(db)
 	util.HardHandleErr(err)
 	return string(res[:])
 }
 
-// SaveDBAsJSON :Persist the db map instance into json file
+// SaveDBAsJSON persists the db map instance into json file.
 func (db *FileDB) SaveDBAsJSON() {
 	absPath, err := filepath.Abs(config.GetInstance().FileDbJSONPath)
 	util.PanicIf(err)
 
-	log.Println("db persistance: db json path =", absPath)
+	log.Println("db persisted in", config.GetInstance().FileDbJSONPath)
 
 	os.Remove(absPath)
 
@@ -64,6 +70,31 @@ func (db *FileDB) SaveDBAsJSON() {
 
 	err = ioutil.WriteFile(absPath, b, 0666)
 	util.PanicIf(err)
+}
+
+// AddFileDir accepts a file or dir string
+// and creates a FileDBEle based on that.
+func (db *FileDB) AddFileDir(fpath string) {
+	ele := NewFileDBEle()
+	(*db)[fpath] = ele
+	db.SaveDBAsJSON()
+}
+
+// AddIncomingFileDir accepts a file or dir string
+// and creates a FileDBEle based on that.
+// Note that the incoming attribute needs to be true.
+func (db *FileDB) AddIncomingFileDir(fpath string) {
+	db.AddFileDir(fpath)
+	(*db)[fpath].Incoming = true
+}
+
+// UnsetIncoming will set the Incoming attribute
+// into false. It happens when the incoming file
+// has been created and dumpped into the file system.
+func (db *FileDB) UnsetIncoming(fpath string) {
+	log.Println("unsetting incoming", fpath)
+	(*db)[fpath].Incoming = false
+	db.SaveDBAsJSON()
 }
 
 // restoreDBFromJSONFile : Try to restore the db instance from the json file
