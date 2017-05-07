@@ -14,10 +14,6 @@ import (
 // whenever it meets a file in the synching directory
 func updateFileDB(fileDB *fs.FileDB, deviceID string, baseDir string) filepath.WalkFunc {
 	return func(fpath string, info os.FileInfo, err error) error {
-		// 1. [x] get file type
-		// 2. [x] get file mode
-		// 3. [x] get checksum of the file if it is not directory
-		// 4. [x] get the last modify
 		var checkSum string
 		if info.IsDir() {
 			checkSum = ""
@@ -29,7 +25,7 @@ func updateFileDB(fileDB *fs.FileDB, deviceID string, baseDir string) filepath.W
 			}
 		}
 
-		fileDBEle := fs.FileDBElement{}
+		fileDBEle := fs.NewFileDBEle()
 		fileDBEle.FileType = fs.GetFileType(info)
 		fileDBEle.Mode = fs.GetFileMode(info)
 		fileDBEle.CheckSum = checkSum
@@ -51,7 +47,8 @@ func updateFileDB(fileDB *fs.FileDB, deviceID string, baseDir string) filepath.W
 			}
 		}
 
-		(*fileDB)[fpath] = fileDBEle
+		// insert file into db
+		(*fileDB)[fpath] = *fileDBEle
 
 		return nil
 	}

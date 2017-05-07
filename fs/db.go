@@ -5,10 +5,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
-
-	"path/filepath"
 
 	"github.com/tonychol/sink/config"
 	"github.com/tonychol/sink/util"
@@ -24,6 +23,13 @@ type FileDBElement struct {
 	Mode       os.FileMode
 	CheckSum   string
 	LastModify time.Time
+	Incoming   bool
+}
+
+// NewFileDBEle returns the new FileDBElement reference
+// with some default values
+func NewFileDBEle() *FileDBElement {
+	return &FileDBElement{Incoming: false}
 }
 
 // FileDB is a map represents the information of each file among the whole directory
@@ -34,7 +40,7 @@ type FileDB map[string]FileDBElement
 var instance *FileDB
 var once sync.Once
 
-// GetFileDBInstance : Using singleton to get the global filedb instance
+// GetFileDBInstance gets the global filedb instance
 func GetFileDBInstance() *FileDB {
 	once.Do(func() {
 		validConfig := restoreDBFromJSONFile()
@@ -43,7 +49,7 @@ func GetFileDBInstance() *FileDB {
 	return instance
 }
 
-// JSONStr : Convert the db map into the json string
+// JSONStr converts the db map into the json string
 func (db *FileDB) JSONStr() string {
 	res, err := json.Marshal(db)
 	util.HardHandleErr(err)

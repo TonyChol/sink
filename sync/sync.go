@@ -137,7 +137,10 @@ func waitRemoteFileInfo(connection net.Conn, targetFullDir string) {
 		json.NewDecoder(connection).Decode(&fileinfo)
 
 		log.Println("Get file info from server", fileinfo.FileRelPath, fileinfo.FileName)
-		// go getFile(fileinfo.FileRelPath, fileinfo.FileName, targetFullDir)
+
+		// Enroll incoming files
+		go getFile(fileinfo.FileRelPath, fileinfo.FileName, targetFullDir)
+		// Exit incoming files
 	}
 }
 
