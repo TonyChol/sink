@@ -45,12 +45,21 @@ func watchDir(done chan bool, deviceID string, baseDir string, dirs ...string) {
 							log.Fatal(err)
 							return
 						}
+
+					}
+
+					if fi.IsDir() == false {
+						_, exist := (*fs.GetFileDBInstance())[eventFile]
+						if exist == false {
+							fs.GetFileDBInstance().AddFileDir(eventFile)
+						}
 					}
 				}
 
 				if ev.IsDelete() {
 					watcher.RemoveWatch(eventFile)
 					// TODO: let server delete the file
+					// requestDel(eventFile)
 				}
 
 				if ev.IsModify() {
@@ -60,6 +69,7 @@ func watchDir(done chan bool, deviceID string, baseDir string, dirs ...string) {
 				}
 
 				if ev.IsAttrib() {
+					continue
 				}
 
 				relativePath, err := filepath.Rel(baseDir, path.Dir(eventFile))
@@ -67,10 +77,29 @@ func watchDir(done chan bool, deviceID string, baseDir string, dirs ...string) {
 					log.Fatalln("can not get relative path of the file", eventFile)
 				}
 
-				err = sync.SendFile(eventFile, relativePath, deviceID)
-				if err != nil {
-					log.Printf("Can not send file %v: %v", eventFile, err)
+				fileDb := fs.GetFileDBInstance()
+				_, exist := (*fileDb)[eventFile]
+
+				if exist == false {
+					log.Println("doesn't exist")
+					err = sync.SendFile(eventFile, relativePath, deviceID)
+					if err != nil {
+						log.Printf("Can not send file %v: %v", eventFile, err)
+					}
+				} else {
+					ele := (*fileDb)[eventFile]
+					if ele.Incoming == false {
+						log.Println("incoming is false", eventFile)
+						err = sync.SendFile(eventFile, relativePath, deviceID)
+						if err != nil {
+							log.Printf("Can not send file %v: %v", eventFile, err)
+						}
+					} else {
+						// set Incoming to false
+						fs.GetFileDBInstance().UnsetIncoming(eventFile)
+					}
 				}
+
 			case err := <-watcher.Error:
 				log.Println("error", err)
 				done <- true

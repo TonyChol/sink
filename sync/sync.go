@@ -154,6 +154,16 @@ func getFile(relPath, filename, targetFullDir string) {
 	}
 
 	fileFullPath := targetFullDir + string(os.PathSeparator) + relPath + string(os.PathSeparator) + filename
+
+	// insert the file into filedb, with the incoming attribute set to true
+	db := fs.GetFileDBInstance()
+	if _, exists := (*db)[fileFullPath]; exists == true {
+		a := (*db)[fileFullPath]
+		(*a).Incoming = true
+	} else {
+		db.AddIncomingFileDir(fileFullPath)
+	}
+
 	out, err := os.Create(fileFullPath)
 	if err != nil {
 		log.Fatalf("can not create file %v\n", fileFullPath)

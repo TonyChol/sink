@@ -48,7 +48,7 @@ func updateFileDB(fileDB *fs.FileDB, deviceID string, baseDir string) filepath.W
 		}
 
 		// insert file into db
-		(*fileDB)[fpath] = *fileDBEle
+		(*fileDB)[fpath] = fileDBEle
 
 		return nil
 	}
