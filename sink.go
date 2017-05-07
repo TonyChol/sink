@@ -175,7 +175,6 @@ func main() {
 func getFreePortAndConnect(targetDir string, deviceID string) {
 	var res = &(networking.PortPayload{})
 	conf := config.GetInstance()
-	// remoteAddr := config.GetInstance().DevServer + fmt.Sprintf(":%d", config.GetInstance().DevPort) + "/socketPort"
 	remoteAddr := "http://" + conf.DevServer + fmt.Sprintf(":%d", conf.DevPort) + conf.FreeSocketPattern
 	// Get available port for socket connection from server
 	networking.GetJSON(remoteAddr, res)
