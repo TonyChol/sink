@@ -1,6 +1,6 @@
 # sink
 
-A directory synchronization solution between multiple clients.
+A directory synchronization solution between multiple clients. Still under development.
 
 
 ## How to build
@@ -20,7 +20,3 @@ Note that the whole project should be located inside your `$GOPATH`. There is mo
 
 - Go to `./server` folder and run `./server` command to start the server
 - In the root folder of this repo, run `./sink testDir <your unique device id>` to start the client.
-
-
-
-Zhibin
